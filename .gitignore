@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Node (userscript end-to-end test)
+node_modules/
+
+# Local settings such as the remote training server (see .env.example)
+.env
+
+# Large or noisy training artifacts: TensorBoard runs and intermediate DQN checkpoints
+reinforcement-learning/runs*/
+reinforcement-learning/checkpoints*/model_ep*.pt
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

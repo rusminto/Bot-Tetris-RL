@@ -1,0 +1,34 @@
+{
+  "generation": 20,
+  "best_score": 1359.0,
+  "weights": {
+    "landing_height": -0.6008088807323817,
+    "eroded_piece_cells": 0.26434976781488173,
+    "row_transitions": -0.1132818822341489,
+    "col_transitions": 0.2186154162873396,
+    "holes": -0.571825568377874,
+    "cumulative_wells": -0.3442905776041814,
+    "hole_depth": -0.020585694944072433,
+    "rows_with_holes": -0.25015625255886076
+  },
+  "feature_names": [
+    "landing_height",
+    "eroded_piece_cells",
+    "row_transitions",
+    "col_transitions",
+    "holes",
+    "cumulative_wells",
+    "hole_depth",
+    "rows_with_holes"
+  ],
+  "weights_list": [
+    -0.6008088807323817,
+    0.26434976781488173,
+    -0.1132818822341489,
+    0.2186154162873396,
+    -0.571825568377874,
+    -0.3442905776041814,
+    -0.020585694944072433,
+    -0.25015625255886076
+  ]
+}

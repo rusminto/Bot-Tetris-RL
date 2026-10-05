@@ -1,0 +1,3 @@
+[submodule "tetris"]
+	path = tetris
+	url = git@gitlab.com:rusminto/cloned-tetris.git

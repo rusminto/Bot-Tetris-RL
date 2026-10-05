@@ -1,0 +1,42 @@
+=================================================================
+ 🧠 Cross-Entropy Method (CEM-RL) Tetris Policy Search
+ Workers:     8 parallel processes
+ Population:  32
+ Elite Size:  6
+ Generations: 20
+ Output Dir:  cem_checkpoints
+=================================================================
+Gen  1/20 | Best: 219.0 lines | Elite Avg: 218.7 lines | Max Pieces:  550 | Time: 31.1s | Total:  0.5m
+Gen  2/20 | Best: 279.5 lines | Elite Avg: 279.1 lines | Max Pieces:  700 | Time: 63.1s | Total:  1.6m
+Gen  3/20 | Best: 339.0 lines | Elite Avg: 339.0 lines | Max Pieces:  850 | Time: 78.5s | Total:  2.9m
+Gen  4/20 | Best: 399.0 lines | Elite Avg: 399.0 lines | Max Pieces: 1000 | Time: 114.2s | Total:  4.8m
+Gen  5/20 | Best: 459.0 lines | Elite Avg: 459.0 lines | Max Pieces: 1150 | Time: 129.1s | Total:  6.9m
+Gen  6/20 | Best: 519.0 lines | Elite Avg: 519.0 lines | Max Pieces: 1300 | Time: 152.5s | Total:  9.5m
+Gen  7/20 | Best: 579.0 lines | Elite Avg: 579.0 lines | Max Pieces: 1450 | Time: 165.6s | Total: 12.2m
+Gen  8/20 | Best: 639.0 lines | Elite Avg: 639.0 lines | Max Pieces: 1600 | Time: 178.2s | Total: 15.2m
+Gen  9/20 | Best: 699.0 lines | Elite Avg: 699.0 lines | Max Pieces: 1750 | Time: 193.4s | Total: 18.4m
+Gen 10/20 | Best: 759.5 lines | Elite Avg: 759.1 lines | Max Pieces: 1900 | Time: 212.5s | Total: 22.0m
+Gen 11/20 | Best: 819.5 lines | Elite Avg: 819.1 lines | Max Pieces: 2050 | Time: 228.8s | Total: 25.8m
+Gen 12/20 | Best: 879.0 lines | Elite Avg: 879.0 lines | Max Pieces: 2200 | Time: 240.8s | Total: 29.8m
+Gen 13/20 | Best: 939.0 lines | Elite Avg: 939.0 lines | Max Pieces: 2350 | Time: 253.8s | Total: 34.0m
+Gen 14/20 | Best: 999.5 lines | Elite Avg: 999.1 lines | Max Pieces: 2500 | Time: 275.9s | Total: 38.6m
+Gen 15/20 | Best: 1059.5 lines | Elite Avg: 1059.1 lines | Max Pieces: 2650 | Time: 285.3s | Total: 43.4m
+Gen 16/20 | Best: 1119.0 lines | Elite Avg: 1119.0 lines | Max Pieces: 2800 | Time: 298.3s | Total: 48.4m
+Gen 17/20 | Best: 1179.0 lines | Elite Avg: 1179.0 lines | Max Pieces: 2950 | Time: 322.2s | Total: 53.7m
+Gen 18/20 | Best: 1239.5 lines | Elite Avg: 1239.1 lines | Max Pieces: 3100 | Time: 334.7s | Total: 59.3m
+Gen 19/20 | Best: 1299.5 lines | Elite Avg: 1299.1 lines | Max Pieces: 3250 | Time: 355.4s | Total: 65.2m
+Gen 20/20 | Best: 1359.0 lines | Elite Avg: 1359.0 lines | Max Pieces: 3400 | Time: 368.4s | Total: 71.4m
+=================================================================
+ 🎉 CEM-RL Training Finished!
+ Best Lines Cleared: 1359.0
+ Learned Policy Weights:
+   landing_height      : -0.600809
+   eroded_piece_cells  : +0.264350
+   row_transitions     : -0.113282
+   col_transitions     : +0.218615
+   holes               : -0.571826
+   cumulative_wells    : -0.344291
+   hole_depth          : -0.020586
+   rows_with_holes     : -0.250156
+ Saved to: cem_checkpoints/best_cem_weights.json
+=================================================================

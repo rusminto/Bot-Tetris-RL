@@ -1,0 +1,12 @@
+{
+  "name": "tetris-rl-userscript-tests",
+  "private": true,
+  "description": "Headless end-to-end test of the userscript against the offline game",
+  "scripts": {
+    "e2e": "node tests/e2e.js",
+    "e2e:20g": "node tests/e2e.js --force-20g --seconds 180"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

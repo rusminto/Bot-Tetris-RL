@@ -1,0 +1,142 @@
+# User Guide
+
+## 1. Install the userscript
+
+1. Install a userscript manager: [Tampermonkey](https://www.tampermonkey.net/) (recommended) or [Violentmonkey](https://violentmonkey.github.io/).
+2. Open [`dist/tetris_bot.user.js`](../dist/tetris_bot.user.js) on GitHub and click **Raw**; the manager offers to install it. (Or create a new script and paste the file's contents.)
+3. Go to <https://play.tetris.com/>. The HUD appears in the top-right corner with the status **STANDBY**.
+4. Press **Press Start** in the HUD (or start the game yourself).
+
+The script also matches `http://localhost:*` and `http://127.0.0.1:*`, so it works on the offline copy of the game too.
+
+## 2. The HUD
+
+```text
++-----------------------------------------------------+
+| 🤖 Tetris RL (CEM-RL v3.1)               [PLAYING]  |
++-----------------------------------------------------+
+| Score: 595,730                    Level: 30         |
+| Lines: 303                        Pieces: 761       |
+| Action: O -> Rot 0, Col 6                           |
+| Fitness/Q: -14.53                                   |
++-----------------------------------------------------+
+| RL Engine:  [ 🧠 CEM-RL (Policy Search - Superhuman) ]|
++-----------------------------------------------------+
+| [ Pause Bot ]                    [ Press Start ]    |
++-----------------------------------------------------+
+| ⚡ Direct Snapping                             (ON) |
++-----------------------------------------------------+
+| Key Delay:  [----o---------]  15ms                  |
++-----------------------------------------------------+
+```
+
+- **Header**: drag to move the HUD.
+- **Telemetry**: score, level, lines and pieces read from the game; the last placement (piece, rotation, leftmost column); the policy's score for it.
+- **RL Engine**: switch policies at any time; the next piece uses the new one.
+  - **CEM-RL**: the default and the strongest (completes the Marathon).
+  - **DQN v2**: 6-feature network; tops out around Level 17–18.
+  - **DQN v1**: 4-feature network; also completes the Marathon offline.
+  See [RL Algorithms](RL_ALGORITHMS.md) for the numbers.
+- **Pause Bot / Press Start**: pause to play yourself; Press Start sends Enter, then Space.
+- **Direct Snapping**: places each piece instantly from the engine's piece-activation hook, using only placements the piece can actually reach. **Keep it on**; it is the only mode that survives 20G (Level 20+).
+- **Key Delay**: only used with Direct Snapping off (keystroke mode, 10–60 ms between key presses).
+
+## 3. Offline copy of the game
+
+The game files are in a separate repository, included as the `tetris` submodule (you need access to it):
+
+```bash
+git clone --recurse-submodules git@github.com:rusminto/Bot-Tetris-RL.git
+# or, in an existing clone:
+git submodule update --init
+```
+
+Then build the userscript and serve the game with the bot injected:
+
+```bash
+python3 userscript/build.py
+python3 userscript/serve_offline.py          # http://localhost:8000/  (--port to change)
+```
+
+`serve_offline.py` adds the bot to `game.html` while serving it, so the game files stay untouched. If you already use Tampermonkey, run it with `--no-bot` so the bot isn't loaded twice.
+
+## 4. Building the userscript
+
+```bash
+python3 userscript/build.py
+```
+
+It concatenates the modules in `userscript/src/` and embeds:
+- `reinforcement-learning/cem_checkpoints/best_cem_weights.json` (CEM),
+- `reinforcement-learning/weights_v2.json` and `weights_v1.json` (DQN),
+
+into `dist/tetris_bot.user.js`. Bump `VERSION` in `userscript/build.py` for every release so userscript managers pick up the update.
+
+## 5. End-to-end test (headless Firefox)
+
+Plays the offline game with the built userscript and prints progress every 5 seconds, then a summary (level, lines, score, gravity/lock delay per level, the bot's placement statistics):
+
+```bash
+cd userscript
+npm install
+npx playwright install firefox
+node tests/e2e.js                              # normal game until the Marathon ends (~3 min)
+node tests/e2e.js --force-20g --seconds 180    # 0 ms gravity and 150 ms lock delay from the first piece
+node tests/e2e.js --engine dqn_v1              # cem (default), dqn_v2 or dqn_v1
+```
+
+The exit code is 0 if the game is still running or reached 300 lines, and 2 if it topped out.
+
+## 6. Training
+
+```bash
+cd reinforcement-learning
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt    # CEM only needs numpy; DQN needs torch and tensorboard
+```
+
+### CEM (the shipped policy)
+
+```bash
+python3 src/test_tetris_sim.py     # simulator sanity checks, a few seconds
+python3 src/cem_train.py --num-workers 12
+```
+
+- Games run in `src/tetris_sim.py`, which follows the same rules as the browser search: SRS kicks, 20G reachability from Level 20, hold once per piece, guideline top out.
+- The defaults train in a deliberately harder setting (20G from the first piece, no hold, 10 rows, 12 games per candidate), because on the full board with hold good policies never top out and CEM can't tell them apart. Options: `--board-height`, `--start-level`, `--hold`, `--games-per-eval`, `--max-pieces`, `--generations`, `--output-dir`.
+- At the end, the final mean and the best candidate are validated on held-out games next to the published Thiery & Scherrer weights, and the better learned one is written to `cem_checkpoints/best_cem_weights.json` (progress goes to `cem_progress.json` every generation).
+- Compare weight files on the same games: `python3 src/evaluate_cem.py cem_checkpoints/best_cem_weights.json --bcts`.
+
+Then rebuild the userscript (`python3 userscript/build.py` from the repository root).
+
+### DQN
+
+```bash
+python3 src/train.py --episodes 5000                   # checkpoints/ and TensorBoard logs in runs/
+python3 src/evaluate.py --episodes 10 --visualize      # terminal playback
+python3 src/web_viewer.py --port 5000                  # live browser view of the latest checkpoint
+python3 src/export_weights.py                          # checkpoints/best_model.pt -> weights_v2.json
+tensorboard --logdir runs
+```
+
+### On a remote server
+
+```bash
+cp .env.example .env      # set TETRIS_RL_REMOTE=user@your-server, port, remote directory, workers
+reinforcement-learning/run_training_remote.sh          # sync the code and start CEM training in tmux
+reinforcement-learning/run_training_remote.sh dqn      # or DQN
+reinforcement-learning/run_training_remote.sh fetch    # copy checkpoints and logs back
+reinforcement-learning/watch_browser.sh                # tunnel the DQN web viewer to localhost:5000
+```
+
+The first run creates a virtualenv on the server and installs `requirements.txt`. Variables already set in your environment override `.env`.
+
+## 7. Troubleshooting
+
+**The HUD doesn't appear on play.tetris.com.** Check that the script is enabled in the userscript manager and the site is allowed, then hard-refresh (Ctrl+F5).
+
+**The bot dies at Level 20.** Make sure Direct Snapping is on, and that you have the current build (v3.1 or later). Older builds assumed every column was reachable; from Level 20 the fall speed is 0 ms and the engine drops each piece onto the stack before the bot sees it, so they piled pieces up around the spawn columns. See [The 20G Gravity Breakthrough](THE_20G_BREAKTHROUGH.md#stage-2-why-the-bot-still-died-at-level-20).
+
+**Is the bot placing pieces where it planned?** In the game iframe's console, `window.__tetrisBotStats` counts placements, holds and mismatches; each mismatch also logs `[TetrisRL] Engine disagreed with the SRS model`.
+
+**The game stops at Level 30.** That's the end of the Marathon (300 lines), not a bug.

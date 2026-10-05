@@ -1,0 +1,57 @@
+=================================================================
+ 🧠 Cross-Entropy Method (CEM-RL) Tetris Policy Search
+ Workers:     12 parallel processes
+ Population:  32
+ Elite Size:  6
+ Generations: 30
+ Games/eval:  12 (max 3000 pieces each)
+ Environment: start level 20, 10 rows, hold off
+ Output Dir:  cem_checkpoints_v2
+=================================================================
+Gen   1/30 | Best:   457.7 lines | Elite Avg:   265.2 | Mean policy:   357.6 | Pop median:     2.4 | Never topped out: 0/32 | Time:   3.5s | Total:   0.1m
+Gen   2/30 | Best:   518.6 lines | Elite Avg:   372.4 | Mean policy:   518.6 | Pop median:    40.6 | Never topped out: 0/32 | Time:   6.4s | Total:   0.2m
+Gen   3/30 | Best:   640.3 lines | Elite Avg:   502.6 | Mean policy:   640.3 | Pop median:   181.8 | Never topped out: 0/32 | Time:  12.1s | Total:   0.4m
+Gen   4/30 | Best:   751.3 lines | Elite Avg:   639.7 | Mean policy:   751.3 | Pop median:   230.9 | Never topped out: 0/32 | Time:  14.9s | Total:   0.6m
+Gen   5/30 | Best:   606.8 lines | Elite Avg:   539.4 | Mean policy:   516.2 | Pop median:   314.0 | Never topped out: 0/32 | Time:  18.2s | Total:   0.9m
+Gen   6/30 | Best:   833.3 lines | Elite Avg:   646.7 | Mean policy:   619.2 | Pop median:   425.2 | Never topped out: 0/32 | Time:  22.4s | Total:   1.3m
+Gen   7/30 | Best:   756.0 lines | Elite Avg:   631.1 | Mean policy:   743.3 | Pop median:   393.0 | Never topped out: 0/32 | Time:  21.1s | Total:   1.6m
+Gen   8/30 | Best:   754.9 lines | Elite Avg:   698.7 | Mean policy:   754.9 | Pop median:   513.9 | Never topped out: 0/32 | Time:  26.6s | Total:   2.1m
+Gen   9/30 | Best:   786.8 lines | Elite Avg:   705.0 | Mean policy:   688.2 | Pop median:   476.7 | Never topped out: 0/32 | Time:  24.4s | Total:   2.5m
+Gen  10/30 | Best:   690.8 lines | Elite Avg:   619.2 | Mean policy:   555.9 | Pop median:   472.9 | Never topped out: 0/32 | Time:  24.3s | Total:   2.9m
+Gen  11/30 | Best:   766.4 lines | Elite Avg:   686.4 | Mean policy:   528.3 | Pop median:   515.8 | Never topped out: 0/32 | Time:  25.7s | Total:   3.3m
+Gen  12/30 | Best:   726.9 lines | Elite Avg:   683.7 | Mean policy:   689.8 | Pop median:   520.5 | Never topped out: 0/32 | Time:  25.0s | Total:   3.8m
+Gen  13/30 | Best:   763.6 lines | Elite Avg:   718.0 | Mean policy:   598.9 | Pop median:   514.5 | Never topped out: 0/32 | Time:  26.7s | Total:   4.2m
+Gen  14/30 | Best:   829.0 lines | Elite Avg:   688.8 | Mean policy:   534.6 | Pop median:   517.5 | Never topped out: 0/32 | Time:  26.2s | Total:   4.6m
+Gen  15/30 | Best:   805.2 lines | Elite Avg:   705.7 | Mean policy:   612.1 | Pop median:   553.9 | Never topped out: 0/32 | Time:  27.2s | Total:   5.1m
+Gen  16/30 | Best:   720.2 lines | Elite Avg:   676.3 | Mean policy:   534.1 | Pop median:   532.5 | Never topped out: 0/32 | Time:  26.6s | Total:   5.5m
+Gen  17/30 | Best:   880.8 lines | Elite Avg:   753.8 | Mean policy:   768.7 | Pop median:   569.3 | Never topped out: 0/32 | Time:  28.3s | Total:   6.0m
+Gen  18/30 | Best:   840.2 lines | Elite Avg:   717.0 | Mean policy:   589.1 | Pop median:   567.0 | Never topped out: 0/32 | Time:  27.7s | Total:   6.5m
+Gen  19/30 | Best:   937.9 lines | Elite Avg:   729.3 | Mean policy:   452.4 | Pop median:   539.3 | Never topped out: 0/32 | Time:  26.2s | Total:   6.9m
+Gen  20/30 | Best:   751.1 lines | Elite Avg:   701.4 | Mean policy:   629.1 | Pop median:   542.2 | Never topped out: 0/32 | Time:  26.0s | Total:   7.3m
+Gen  21/30 | Best:   773.5 lines | Elite Avg:   712.8 | Mean policy:   369.7 | Pop median:   546.6 | Never topped out: 0/32 | Time:  26.9s | Total:   7.8m
+Gen  22/30 | Best:   742.3 lines | Elite Avg:   668.7 | Mean policy:   572.6 | Pop median:   489.3 | Never topped out: 0/32 | Time:  26.2s | Total:   8.2m
+Gen  23/30 | Best:   758.8 lines | Elite Avg:   722.2 | Mean policy:   265.9 | Pop median:   522.3 | Never topped out: 0/32 | Time:  26.5s | Total:   8.7m
+Gen  24/30 | Best:   776.2 lines | Elite Avg:   695.4 | Mean policy:   736.5 | Pop median:   579.0 | Never topped out: 0/32 | Time:  27.6s | Total:   9.1m
+Gen  25/30 | Best:   759.0 lines | Elite Avg:   717.0 | Mean policy:   745.2 | Pop median:   576.6 | Never topped out: 0/32 | Time:  27.8s | Total:   9.6m
+Gen  26/30 | Best:   755.6 lines | Elite Avg:   691.3 | Mean policy:   521.3 | Pop median:   534.8 | Never topped out: 0/32 | Time:  26.9s | Total:  10.0m
+Gen  27/30 | Best:   820.9 lines | Elite Avg:   684.6 | Mean policy:   495.5 | Pop median:   489.6 | Never topped out: 0/32 | Time:  24.1s | Total:  10.4m
+Gen  28/30 | Best:   864.2 lines | Elite Avg:   792.7 | Mean policy:   432.2 | Pop median:   536.8 | Never topped out: 0/32 | Time:  26.8s | Total:  10.9m
+Gen  29/30 | Best:   884.6 lines | Elite Avg:   793.7 | Mean policy:   678.9 | Pop median:   500.7 | Never topped out: 0/32 | Time:  27.6s | Total:  11.4m
+Gen  30/30 | Best:   813.4 lines | Elite Avg:   731.2 | Mean policy:   748.4 | Pop median:   532.6 | Never topped out: 0/32 | Time:  26.8s | Total:  11.8m
+=================================================================
+ Validating on held-out games...
+   final_mean     : training env    631.7 lines | 20 rows @20G no hold   1997.3 lines
+   best_candidate : training env    575.6 lines | 20 rows @20G no hold   1997.4 lines
+   bcts_baseline  : training env    618.3 lines | 20 rows @20G no hold   1997.6 lines
+=================================================================
+ 🎉 CEM-RL Training Finished! Selected: final_mean
+   landing_height      : -0.249049
+   eroded_piece_cells  : +0.312319
+   row_transitions     : -0.292360
+   col_transitions     : -0.249842
+   holes               : -0.465720
+   cumulative_wells    : -0.209651
+   hole_depth          : -0.110120
+   rows_with_holes     : -0.647735
+ Saved to: cem_checkpoints_v2/best_cem_weights.json
+=================================================================
