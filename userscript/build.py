@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "userscript" / "src"
 RL = ROOT / "reinforcement-learning"
 
-VERSION = "3.2"  # bump on every release so userscript managers pick up the update
+VERSION = "3.3"  # bump on every release so userscript managers pick up the update
 
 # Concatenated in this order inside one IIFE (header.js opens it, hud.js closes it)
 MODULES = [

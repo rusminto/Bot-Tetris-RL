@@ -52,13 +52,12 @@ function toBoard(rows) {
 const PY = `
 import json, sys
 sys.path.insert(0, ${JSON.stringify(path.join(ROOT, 'reinforcement-learning', 'src'))})
-from tetris_sim import Matrix, LINE_CLEAR_POINTS
+from tetris_sim import Matrix, cem_features
 m = Matrix()
 out = []
 for c in json.load(open(sys.argv[1])):
     rows = c["rows"] + [0] * 4
-    cem = list(m.features(rows, c["landing"], c["cleared"], c["eroded"]))
-    cem += [LINE_CLEAR_POINTS[c["cleared"]] // 100, m.ready_lines(rows)]
+    cem = list(cem_features(m, rows, c["landing"], c["cleared"], c["eroded"]))
     holes, bump, total, top = m.dqn_features(rows)
     v1 = [c["cleared"], holes, bump, total]
     v2 = v1 + [top, max(0, min(30, c["level"]) - 1) / 29.0]
@@ -94,7 +93,7 @@ function main() {
       }
     }
   });
-  console.log(failures ? `FAIL: ${failures} mismatches` : `ok: ${cases.length} boards, CEM (10) and DQN v1/v2 features match`);
+  console.log(failures ? `FAIL: ${failures} mismatches` : `ok: ${cases.length} boards, CEM (11) and DQN v1/v2 features match`);
   process.exit(failures ? 1 : 0);
 }
 

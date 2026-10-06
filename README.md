@@ -10,18 +10,19 @@ A userscript bot that plays the official [play.tetris.com](https://play.tetris.c
 
 | Policy | Offline game, headless Firefox | Simulated Marathon (256 games) | play.tetris.com |
 | :--- | :--- | :--- | :--- |
-| **CEM v3** (default, trained for score) | **826,296** mean over 6 games, all finished | **826,041**, 1.2% topped out | |
-| DQN v1 | 759,388 mean over 6 games, all finished | 729,646, 2.3% topped out | 779,912 (Level 30, 304 lines) |
-| CEM v2 (trained for survival) | 600–616k, all finished | 606,165 (64 games), none topped out | 600,230 (Level 30, 304 lines) |
+| **CEM v4** (default, trained for score) | **973,409** mean over 6 games, all finished (best 1,097,202) | **955,289**, 1.6% topped out | |
+| CEM v3 | 826,296 mean over 6 games, all finished | 843,656, 1.2% topped out | |
+| DQN v1 | 759,388 mean over 6 games, all finished | 756,668, 1.6% topped out | 779,912 (Level 30, 304 lines) |
+| CEM v2 (trained for survival) | 600–616k, all finished | 624,104, none topped out | 600,230 (Level 30, 304 lines) |
 | Before the reachable placement search | topped out at Level 20–22 | | 307,196 (Level 22) |
 
-The Marathon ends at Level 30 / 300 lines, so once the bot survives it the score depends on how it clears lines: CEM v3 makes about 38 Tetrises per game, CEM v2 almost only singles. How the Level 20 wall was found and fixed: [The 20G Gravity Breakthrough](docs/THE_20G_BREAKTHROUGH.md); how the policies compare: [RL Algorithms & Benchmarks](docs/RL_ALGORITHMS.md).
+The Marathon ends at Level 30 / 300 lines, so once the bot survives it the score depends on how it clears lines: CEM v4 makes about 53 Tetrises per game (70% of its lines), CEM v2 almost only singles. How the Level 20 wall was found and fixed: [The 20G Gravity Breakthrough](docs/THE_20G_BREAKTHROUGH.md); how the policies compare: [RL Algorithms & Benchmarks](docs/RL_ALGORITHMS.md).
 
 ## How it works
 
 1. **Hook the engine, not the screen.** The userscript wraps SystemJS module registration to get the game's `Player` and `Model` objects, so it reads the board, the live piece, hold and queue directly and drives the piece through the engine's own control actions.
 2. **Search reachable placements.** When a piece activates, the bot runs a breadth-first search over left/right moves and SRS rotations with wall kicks. From Level 20 the fall speed is 0 ms, so the piece drops onto the stack after every action; the search models that, so the bot never plans a column the piece can't get to.
-3. **Score them with a learned policy.** The default policy is linear over 10 board features (Thiery & Scherrer's 8, plus the points of the clear and how many lines an I piece could clear), trained with the **Cross-Entropy Method** to maximize the Marathon score in [`tetris_sim.py`](reinforcement-learning/src/tetris_sim.py), a simulator with the same rules and scoring as the game. Two DQN networks are available as alternatives.
+3. **Score them with a learned policy.** The default policy is linear over 11 board features (Thiery & Scherrer's 8, plus the points of the clear, how many lines an I piece could clear, and whether the placement clears a Tetris), trained with the **Cross-Entropy Method** to maximize the Marathon score in [`tetris_sim.py`](reinforcement-learning/src/tetris_sim.py), a simulator with the same rules and scoring as the game. Two DQN networks are available as alternatives.
 4. **Execute and verify.** Actions are applied one at a time; after each one the bot checks where the engine put the piece and re-plans if it differs, then hard-drops.
 
 Details: [Architecture](docs/ARCHITECTURE.md) · [RL algorithms & benchmarks](docs/RL_ALGORITHMS.md).
@@ -70,7 +71,7 @@ To train on a remote server, copy `.env.example` to `.env`, fill in the server, 
 │   └── tests/                     headless Firefox end-to-end test, JS/Python feature parity test
 ├── reinforcement-learning/
 │   ├── src/                       simulators, CEM and DQN training, evaluation
-│   ├── cem_checkpoints/           CEM weights used by the userscript (v3), v2 survival and v1 legacy
+│   ├── cem_checkpoints/           CEM weights used by the userscript (v4), v3, v2 survival and v1 legacy
 │   ├── checkpoints*/              DQN checkpoints, weights_v1.json / weights_v2.json exports
 │   ├── logs/                      training logs
 │   └── run_training_remote.sh     sync + train on a remote server (configured by .env)

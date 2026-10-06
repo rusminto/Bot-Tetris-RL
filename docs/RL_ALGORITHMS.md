@@ -4,25 +4,26 @@ All engines play the same way: for every placement the piece can reach (see [Arc
 
 ## Summary
 
-| | **CEM v3** (default) | CEM v2 | DQN v1 | DQN v2 |
-| :--- | :--- | :--- | :--- | :--- |
-| Learns | Linear weights, by direct policy search | Linear weights | After-state value, MLP | After-state value, MLP |
-| Objective | **Marathon score** | Survival (lines before topping out) | Rewards: 10/30/60/100 per clear | Same as v1, + level bonus |
-| Features | 10 (8 Thiery & Scherrer + 2 Tetris features) | 8 | 4 | 6 |
-| Trained in | `tetris_sim.py`: Marathon, hold, 40 generations, ~35 min on 12 cores | `tetris_sim.py`: 20G, 10 rows, no hold | Earlier `tetris_engine.py` | `tetris_engine.py`, 5,000 episodes, ~8 h |
-| Simulated Marathon, 256 games | **826,041 ± 47,155**, topped out 3/256 | 606,165 (64 games), topped out 0/64 | 729,646 ± 101,514, topped out 6/256 | topped out 24/24 at ~159 lines |
-| Offline game, headless Firefox | **826,296 ± 41,414 (6 games, all finished)** | 600–616k (all finished) | 759,388 ± 18,284 (6 games, all finished) | topped out 3/3 at Level 17–18 |
-| Clears per game (singles / doubles / triples / Tetrises) | 72 / 31 / 4.6 / **37.9** | 253 / 23 / 0.5 / 0 | 30 / 93 / 17.3 / 6.8 | |
+| | **CEM v4** (default) | CEM v3 | CEM v2 | DQN v1 | DQN v2 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Learns | Linear weights, by direct policy search | Linear weights | Linear weights | After-state value, MLP | After-state value, MLP |
+| Objective | **Marathon score** | Marathon score | Survival (lines before topping out) | Rewards: 10/30/60/100 per clear | Same as v1, + level bonus |
+| Features | 11 (8 Thiery & Scherrer + 3 Tetris features) | 10 | 8 | 4 | 6 |
+| Trained in | `tetris_sim.py`: Marathon, hold, 40 generations, ~35 min on 12 cores | Same as v4 | `tetris_sim.py`: 20G, 10 rows, no hold | Earlier `tetris_engine.py` | `tetris_engine.py`, 5,000 episodes, ~8 h |
+| Simulated Marathon, 256 games | **955,289 ± 70,099**, topped out 4/256 | 843,656 ± 61,740, topped out 3/256 | 624,104 ± 28,358, topped out 0/256 | 756,668 ± 51,808, topped out 4/256 | topped out 256/256 at ~158 lines |
+| Offline game, headless Firefox | **973,409 ± 65,688 (6 games, all finished; best 1,097,202)** | 826,296 ± 41,414 (6 games, all finished) | 600–616k (all finished) | 759,388 ± 18,284 (6 games, all finished) | topped out 3/3 at Level 17–18 |
+| Clears per game (singles / doubles / triples / Tetrises) | 61 / 8 / 3.9 / **52.6** | 72 / 31 / 4.6 / 37.9 | 252 / 24 / 0.4 / 0 | 29 / 95 / 17.0 / 7.1 | |
 
-Simulated numbers come from `src/evaluate_policies.py --marathon`, offline-game numbers from `userscript/tests/e2e.js`; every browser run logged 0 mismatches between planned and actual piece positions. The simulator reproduces the browser closely (same scores and the same mix of clears for every engine), so it is used for training and for large comparisons.
+Simulated numbers come from `src/evaluate_policies.py --marathon --games 256` (the same 256 games for every policy), offline-game numbers from `userscript/tests/e2e.js`; every browser run logged 0 mismatches between planned and actual piece positions. The simulator reproduces the browser closely (same scores and the same mix of clears for every engine), so it is used for training and for large comparisons. The simulated scores include T-spin minis the policies make by accident, which the game counts too; before T-spins were modelled, v3 scored 826,041 on the same games.
 
-On play.tetris.com, CEM v2 completed the Marathon with 600,230 points and DQN v1 with 779,912. The shipped userscript (3.2, CEM v3) then scored 905,040 and 906,122 in two more offline games, and also finished a game with 0 ms gravity forced from the first piece (758,900 points).
+On play.tetris.com, CEM v2 completed the Marathon with 600,230 points and DQN v1 with 779,912. The userscript 3.2 (CEM v3) then scored 905,040 and 906,122 in two more offline games, and also finished a game with 0 ms gravity forced from the first piece (758,900 points). The userscript 3.3 (CEM v4) finished the same forced-20G test with 955,750 points.
 
 ### Which one to use
 
-- **CEM v3** (default): highest score and fewer top-outs than DQN v1 in the Marathon. It builds for Tetrises, so its stack sits higher (often 5–12 rows) and it is less robust if 20G lasts the whole game (3/32 simulated games topped out when 20G started at the first piece, against 0/32 for CEM v2 and DQN v1).
-- **CEM v2** (`cem_checkpoints/best_cem_weights_v2_survival.json`): the safest, never topped out in testing, but ~27% fewer points; it clears almost everything as singles.
-- **DQN v1**: between the two on score, but tops out more often than CEM v3.
+- **CEM v4** (default): the highest score, with about 70% of its lines cleared as Tetrises. Like v3 it keeps a well open, so its stack sits higher than v2's and it is less robust if 20G lasts the whole game: with 20G from the first piece, 4/64 simulated games topped out (v3: 5/64, CEM v2 and DQN v1: 0/64).
+- **CEM v3** (`cem_checkpoints/best_cem_weights_v3.json`): the previous default, ~12% fewer points.
+- **CEM v2** (`cem_checkpoints/best_cem_weights_v2_survival.json`): the safest, never topped out in testing, but ~35% fewer points than v4; it clears almost everything as singles.
+- **DQN v1**: completes the Marathon with ~20% fewer points than v4.
 
 ---
 
@@ -32,11 +33,11 @@ On play.tetris.com, CEM v2 completed the Marathon with 600,230 points and DQN v1
 
 $$V(s) = \mathbf{w}^\top \mathbf{f}(s), \qquad \lVert \mathbf{w} \rVert = 1$$
 
-Only the direction of $\mathbf{w}$ matters for choosing a placement, so weights are kept normalized. The userscript accepts 8 weights (v1/v2) or 10 (v3).
+Only the direction of $\mathbf{w}$ matters for choosing a placement, so weights are kept normalized. The userscript accepts 8 weights (v1/v2), 10 (v3) or 11 (v4).
 
 ### B. Features
 
-Computed over the 20 visible rows after the piece locks and lines clear. Features 1–8 are Thiery & Scherrer's; 9–10 were added in v3 so a linear policy can plan Tetrises:
+Computed over the 20 visible rows after the piece locks and lines clear. Features 1–8 are Thiery & Scherrer's; 9–10 were added in v3 and 11 in v4 so a linear policy can plan Tetrises:
 
 | # | Feature | Definition |
 | :-: | :--- | :--- |
@@ -50,6 +51,7 @@ Computed over the 20 visible rows after the piece locks and lines clear. Feature
 | 8 | Rows with holes | Rows that contain at least one hole |
 | 9 | Clear points | Base points of this clear / 100: 0, 1, 3, 5, 8 for 0–4 lines |
 | 10 | Ready lines | Lines a vertical I would clear in the lowest column right now (0–4): the rows directly above that column's top that are full except for it |
+| 11 | Tetris | 8 if this placement clears 4 lines (a Tetris's base points / 100), else 0 |
 
 Placements that leave cells in the 4 hidden rows above the visible area get a −1000 penalty; placements entirely above it (lock out) are never chosen. `userscript/tests/features_parity.js` checks that the userscript and the simulator compute identical features.
 
@@ -66,7 +68,7 @@ flowchart TD
     DONE -- yes --> VAL["Validate the final μ and the best single candidate on 24 held-out games\nnext to the published BCTS weights; save the better learned one"]
 ```
 
-The held-out validation matters: in the v3 run the best single candidate (a lucky sample) scored 783k but topped out in 6 of 24 games, while the final mean scored 836k with no top-outs.
+The held-out validation matters: the best single candidate is usually a lucky sample. In the v3 run it scored 783k but topped out in 6 of 24 games, while the final mean scored 836k with no top-outs; in the v4 run, 791k with 10 top-outs against 981k with none.
 
 ### D. Objectives and training settings
 
@@ -75,30 +77,40 @@ Games run in [`tetris_sim.py`](../reinforcement-learning/src/tetris_sim.py): the
 | Clear | Points |
 | :--- | :--- |
 | Single / double / triple / Tetris | 100 / 300 / 500 / 800 × level |
-| Back-to-back Tetris | ×1.5 |
+| T-spin with no lines / single / double / triple | 400 / 800 / 1200 / 1600 × level |
+| T-spin mini with no lines / single | 100 / 200 × level |
+| Back-to-back (Tetris, T-spin with lines, mini single) | ×1.5; a single, double or triple ends the chain |
 | Combo | +50 × combo count × level |
 | Perfect clear | +800 / 1200 / 1800 / 2000 (3200 for a back-to-back Tetris) × level |
 | Hard drop | 2 per row |
 
-`python3 src/cem_train.py --objective score` (default, v3) and `--objective lines` (v2):
+`python3 src/cem_train.py --objective score` (default, v4) and `--objective lines` (v2):
 
-| | **score** (v3) | lines (v2) |
+| | **score** (v4) | lines (v2) |
 | :--- | :--- | :--- |
 | Game | Marathon: Level 1 → 300 lines, 20 rows, hold | 20G from the first piece, 10 rows, no hold, cap 3,000 pieces |
 | Fitness | Mean score − 500,000 per top-out | Mean lines cleared |
-| Features | 10 | 8 |
-| Start | v2 weights + 0.3 on features 9 and 10 | Hand-set signs |
+| Features | 11 | 8 |
+| Start | v3 weights with ready lines at 0.5 and Tetris at 0.5 | Hand-set signs |
 | Generations | 40 | 30 |
 
 Why the lines objective uses a harder game: on the real board with hold, decent survival policies never top out, so every candidate scores the same and CEM can't tell them apart. The score objective doesn't have that problem: points differ even when everyone survives.
 
-Warm-starting matters for the score objective: the same run started from the hand-set signs plateaued at ~726k, against 836k from the v2 weights. Both runs are deterministic for a given `--seed`; the defaults reproduce the shipped v3 weights exactly.
+Warm-starting matters for the score objective. v3 started from the v2 weights plus 0.3 on features 9 and 10; the same run started from the hand-set signs plateaued at ~726k, against 836k. v4 starts from v3's weights with the ready lines weight raised and the Tetris feature added, which already scored ~890k. CEM's first generations moved away from that point (the mean fell to 650k in generation 2) and then climbed to 981k on the validation games. A run with less exploration noise (`--initial-sigma 0.15`) ended slightly lower: 949k against 955k over 256 games, with 7 top-outs against 4. Runs are deterministic for a given `--seed`; v4 was trained with the defaults.
 
 **v1 history.** The first CEM run used a simplified game inside `cem_train.py`: no gravity, a hold bug that let the held piece be reused forever, and a piece cap (rising from 550 to 3,400 over the run) that every candidate hit from generation 1 (its reported 1,359 lines was the cap: 3,400 pieces × 0.4). With no difference between candidates CEM only drifted, and the v1 weights ended up *worse* than its starting point (`logs/cem_v1_train.log`).
 
 ### E. Learned weights
 
-**v3** (`cem_checkpoints/best_cem_weights.json`, `logs/cem_v3_train.log`):
+**v4** (`cem_checkpoints/best_cem_weights.json`, `logs/cem_v4_train.log`):
+
+| Landing height | Eroded cells | Row trans. | Col. trans. | Holes | Wells | Hole depth | Rows w/ holes | Clear points | Ready lines | Tetris |
+| --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
+| −0.411 | −0.170 | −0.136 | −0.276 | −0.330 | −0.017 | −0.042 | −0.342 | **−0.281** | +0.233 | **+0.588** |
+
+v3 cleared only about half of its lines as Tetrises, at every level, even at Levels 1–9 with the stack around 8 rows. It wasn't missing Tetrises: it took every ready one eventually, often a few pieces late. It was filling its well with other pieces as the stack grew, because the landing height weight pulls pieces down. Its two Tetris features couldn't say "take Tetrises, avoid small clears": a larger ready lines weight alone made it wait longer and top out more, and a larger clear points weight made it chase singles. The Tetris feature separates the two. CEM used it to penalize small clears (clear points turned clearly negative) and reward Tetrises, so v4 clears about 70% of its lines as Tetrises (v3: 51%).
+
+**v3** (`cem_checkpoints/best_cem_weights_v3.json`, `logs/cem_v3_train.log`):
 
 | Landing height | Eroded cells | Row trans. | Col. trans. | Holes | Wells | Hole depth | Rows w/ holes | Clear points | Ready lines |
 | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: |
@@ -114,7 +126,12 @@ Compared with v2, clearing lines is no longer rewarded at all (eroded cells turn
 
 The v1 weights are kept in `cem_checkpoints/best_cem_weights_v1_legacy.json`.
 
-### F. Survival benchmarks (v1 vs v2)
+### F. Things that didn't help (yet)
+
+- **Lookahead.** Choosing a placement by the best value after the next piece in the preview, with v3's weights, dropped the score to 663–738k and the share of lines cleared as Tetrises to 8–10% (8 games). Weights tuned for one-piece decisions are not a value function for a deeper search; lookahead would need weights trained with it, and the Python simulator plays about 10× slower with it.
+- **T-spins.** The simulator scores T-spins as the engine detects them, but the stacks these policies build almost never have a T-slot: over 128 simulated Marathons with v3, a T-spin that clears lines was possible 0.12 times per game, and a bonus for taking T-spins didn't change the score. Building T-slots on purpose would need features for them; today an overhang counts as a hole.
+
+### G. Survival benchmarks (v1 vs v2)
 
 Fresh games, all at 20G (`python3 src/evaluate_policies.py cem_checkpoints/best_cem_weights_v2_survival.json cem_checkpoints/best_cem_weights_v1_legacy.json --bcts` reproduces the first row):
 

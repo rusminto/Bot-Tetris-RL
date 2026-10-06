@@ -64,10 +64,12 @@
     }
 
     // ==========================================
-    // 3. CEM-RL EVALUATION ENGINE (8 OR 10 FEATURES)
+    // 3. CEM-RL EVALUATION ENGINE (8, 10 OR 11 FEATURES)
     // ==========================================
-    // Base points of a clear / 100, indexed by lines cleared (feature 9 of 10-weight policies)
+    // Base points of a clear / 100, indexed by lines cleared (feature 9)
     const CLEAR_POINTS = [0, 1, 3, 5, 8];
+    // Feature 11 of a placement that clears a Tetris (a Tetris's base points / 100), else 0
+    const TETRIS_FEATURE = 8;
 
     // Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
     // above that column's top that are full except for it. Only a strictly lowest column can qualify.
@@ -186,7 +188,8 @@
             holeDepth,
             rowsWithHolesCount,
             CLEAR_POINTS[numCleared] || 0,
-            readyLines(board)
+            readyLines(board),
+            numCleared === 4 ? TETRIS_FEATURE : 0
         ];
     }
 

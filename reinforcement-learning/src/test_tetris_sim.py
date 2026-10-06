@@ -9,7 +9,7 @@ import random
 import numpy as np
 
 from tetris_sim import (FULL_ROW, MARATHON_LINES, Matrix, MLPPolicy, PIECE_NAMES, SRS_CELLS, Scorer,
-                        play_game)
+                        TSPIN_FULL, TSPIN_MINI, TSPIN_NONE, play_game)
 
 RL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
@@ -147,6 +147,68 @@ def test_scoring_rules():
     s2 = Scorer()
     s2.add(4, level=3, perfect_clear=True)  # Tetris perfect clear: (800 + 2000) x 3
     assert s2.score == 8400
+
+
+def tsd_board(m):
+    """A T-spin double slot: row 0 open at x=4, row 1 open at x=3-5, an overhang at (3, 2)."""
+    rows = [0] * m.height
+    rows[0] = FULL_ROW & ~(1 << 4)
+    rows[1] = FULL_ROW & ~(0b111 << 3)
+    rows[2] = 1 << 3
+    return rows
+
+
+TSD_CELLS = ((3, 1), (4, 0), (4, 1), (5, 1))
+
+
+def test_tspin_double_at_20g():
+    """At 20G the T settles into column 4 pointing right, then rotates into the slot: a T-spin."""
+    m = Matrix()
+    rows = tsd_board(m)
+    reach = m.reachable_placements(rows, "T", m.spawn_state("T"), True)
+    assert reach[TSD_CELLS][4] == {TSPIN_FULL}, reach[TSD_CELLS]
+    _, lines, _ = m.lock(rows, TSD_CELLS)
+    assert lines == 2
+    # below 20G the bot moves at spawn height and hard drops, which can't get under the overhang
+    assert TSD_CELLS not in m.reachable_placements(rows, "T", m.spawn_state("T"), False)
+
+
+def test_tspin_rule():
+    m = Matrix()
+    rows = tsd_board(m)
+    assert m.tspin_type(rows, 2, 3, 2, 1) == TSPIN_FULL   # both front corners + a back one
+    assert m.tspin_type(rows, 2, 3, 2, 0) == TSPIN_NONE   # last action wasn't a rotation
+    # pointing right with both back (left) corners and one front corner filled: a mini
+    rows = [0] * m.height
+    rows[0] = rows[1] = rows[2] = 1 << 3
+    rows[0] |= 1 << 5
+    assert m.tspin_type(rows, 1, 3, 2, 1) == TSPIN_MINI
+    assert m.tspin_type(rows, 1, 3, 2, 4) == TSPIN_NONE   # kick 4 doesn't count
+    assert m.tspin_type(rows, 1, 3, 2, 5) == TSPIN_FULL   # kick 5 makes it a T-spin
+    # below 20G: rotate at spawn height, then a hard drop (which keeps the rotation) gives the mini;
+    # rotating first and moving last doesn't
+    reach = m.reachable_placements(rows, "T", m.spawn_state("T"), False)
+    assert reach[((4, 0), (4, 1), (4, 2), (5, 1))][4] == {TSPIN_MINI, TSPIN_NONE}
+    # against the left wall only a mini is possible, even with both front corners filled
+    rows = [0] * m.height
+    rows[0] = rows[2] = 1 << 1
+    assert m.tspin_type(rows, 1, -1, 2, 1) == TSPIN_MINI
+
+
+def test_tspin_scoring():
+    s = Scorer()
+    s.add(2, level=1, tspin=TSPIN_FULL)   # T-spin double: 1200, starts back-to-back
+    s.add(2, level=1, tspin=TSPIN_FULL)   # back-to-back x1.5 + combo 1: 1800 + 50
+    assert s.score == 3050
+    s.add(0, level=1, tspin=TSPIN_FULL)   # T-spin, no lines: 400, ends the combo, keeps back-to-back
+    s.add(1, level=1, tspin=TSPIN_MINI)   # mini single continues back-to-back: 200 x1.5
+    s.add(2, level=1, tspin=TSPIN_MINI)   # mini double: no points, combo 1, chain untouched
+    s.add(4, level=1)                     # back-to-back Tetris + combo 2: 1200 + 100
+    assert s.score == 3050 + 400 + 300 + 50 + 1300, s.score
+    assert s.tspins == {TSPIN_MINI: [0, 1, 1, 0], TSPIN_FULL: [1, 0, 2, 0]}
+    s.add(3, level=1)                     # a triple breaks the chain
+    s.add(1, level=1, tspin=TSPIN_FULL)   # T-spin single: 800 + combo 4
+    assert s.score == 3050 + 400 + 300 + 50 + 1300 + 650 + 1000
 
 
 def test_ready_lines():

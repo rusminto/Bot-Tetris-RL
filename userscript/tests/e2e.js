@@ -54,8 +54,9 @@ function readGameState() {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const server = spawn('python3', [path.join(ROOT, 'userscript', 'serve_offline.py'), '--port', String(opts.port)], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // launch first, so a missing browser doesn't leave the server running
   const browser = await firefox.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_FIREFOX_PATH || undefined });
+  const server = spawn('python3', [path.join(ROOT, 'userscript', 'serve_offline.py'), '--port', String(opts.port)], { stdio: ['ignore', 'ignore', 'inherit'] });
   let exitCode = 1;
   try {
     await sleep(800);

@@ -8,9 +8,9 @@ reachability from Level 20, hold once per piece, guideline top out, the game's s
 
 Two objectives:
 - score (default): play.tetris.com's Marathon (Level 1 -> 300 lines, hold on, 20 rows) and maximize the
-  final score, with a large penalty for topping out. Uses 10 features: the 8 Thiery & Scherrer ones plus
-  the base points of the clear and how many lines a vertical I would clear (so the policy can plan
-  Tetrises).
+  final score, with a large penalty for topping out. Uses 11 features: the 8 Thiery & Scherrer ones plus
+  the base points of the clear, how many lines a vertical I would clear (so the policy can plan
+  Tetrises) and whether the placement clears a Tetris.
 - lines (the v2 policy): survival only. The Marathon is too easy to tell survival policies apart, so it
   trains at 20G from the first piece on a 10-row board without hold and counts lines cleared.
 """
@@ -36,6 +36,7 @@ FEATURE_NAMES = [
     "rows_with_holes",
     "clear_points",   # base points of the clear / 100: 0, 1, 3, 5, 8
     "ready_lines",    # lines a vertical I would clear in the lowest column (0-4)
+    "tetris",         # 8 if the placement clears a Tetris, else 0
 ]
 
 # Thiery & Scherrer (2009) BCTS weights, first 8 features (used as a validation baseline)
@@ -43,12 +44,15 @@ BCTS_WEIGHTS = [-12.63, 6.60, -9.22, -19.77, -13.08, -10.49, -1.61, -24.04]
 # Hand-set starting point (the lines objective starts here): landing_height(-), eroded(+), row_trans(-),
 # col_trans(-), holes(-), wells(-), hole_depth(-), rows_with_holes(-)
 LINES_INIT = [-5.0, 5.0, -5.0, -10.0, -10.0, -5.0, -2.0, -15.0]
-# The score objective warm-starts from the v2 survival weights plus small positive weights on the two Tetris
-# features; starting from the hand-set signs instead only reached ~726k points instead of ~836k
-SCORE_INIT = [-0.249, 0.312, -0.292, -0.250, -0.466, -0.210, -0.110, -0.648, 0.3, 0.3]
+# The score objective warm-starts from the v3 weights with ready_lines raised to 0.5 and the Tetris feature at
+# 0.5: neither change alone helps, together they scored 884k against v3's 848k (64 simulated Marathons). v4 was
+# trained from here with the defaults. v3 itself started from the v2 survival weights plus 0.3 on clear_points and ready_lines; starting from the
+# hand-set signs instead only reached ~726k points instead of ~836k
+SCORE_INIT = [-0.522041, -0.20335, -0.179347, -0.498333, -0.361269, -0.015675, -0.055044, -0.410601, -0.001968,
+              0.5, 0.5]
 
 PRESETS = {
-    "score": dict(features=10, start_level=1, board_height=20, hold=True, max_lines=MARATHON_LINES, max_pieces=1500,
+    "score": dict(features=11, start_level=1, board_height=20, hold=True, max_lines=MARATHON_LINES, max_pieces=1500,
                   generations=40, init_weights=SCORE_INIT),
     "lines": dict(features=8, start_level=20, board_height=10, hold=False, max_lines=None, max_pieces=3000,
                   generations=30, init_weights=LINES_INIT),
@@ -199,9 +203,9 @@ def save_checkpoint(output_dir, filename, names, gen, score, mu, sigma, weights,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cross-Entropy Method RL for Tetris")
     parser.add_argument("--objective", choices=sorted(PRESETS), default="score",
-                        help="score: Marathon score (10 features); lines: survival at 20G on a short board (8 features). "
+                        help="score: Marathon score (11 features); lines: survival at 20G on a short board (8 features). "
                              "Sets the defaults of the environment options below.")
-    parser.add_argument("--features", type=int, choices=(8, 10), help="Number of features")
+    parser.add_argument("--features", type=int, choices=(8, 10, 11), help="Number of features")
     parser.add_argument("--start-level", type=int, help="Starting level (20+ means 20G gravity)")
     parser.add_argument("--board-height", type=int, help="Visible rows (real game: 20)")
     parser.add_argument("--hold", action=argparse.BooleanOptionalAction, default=None, help="Allow hold")

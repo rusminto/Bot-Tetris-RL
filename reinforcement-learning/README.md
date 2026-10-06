@@ -14,11 +14,11 @@ Training and evaluation for the bot's policies. The userscript embeds the CEM we
 │   ├── evaluate.py           play a DQN checkpoint, optional terminal animation
 │   ├── web_viewer.py         live browser view of a DQN checkpoint (SSE)
 │   └── export_weights.py     DQN checkpoint -> JSON for the userscript
-├── cem_checkpoints/          best_cem_weights.json (v3, shipped), best_cem_weights_v2_survival.json, best_cem_weights_v1_legacy.json, cem_progress.json (v3 run)
+├── cem_checkpoints/          best_cem_weights.json (v4, shipped), best_cem_weights_v3.json, best_cem_weights_v2_survival.json, best_cem_weights_v1_legacy.json, cem_progress.json (v4 run)
 ├── checkpoints/              DQN v2 checkpoints (best_model.pt, final_model.pt; per-500-episode ones are git-ignored)
 ├── checkpoints_v1_legacy/    DQN v1 checkpoints
 ├── weights_v1.json, weights_v2.json   exported DQN weights embedded in the userscript
-├── logs/                     cem_v1_train.log, cem_v2_train.log, cem_v3_train.log, dqn_v2_train.log
+├── logs/                     cem_v1_train.log … cem_v4_train.log, dqn_v2_train.log
 ├── run_training_remote.sh    sync + train on a remote server in tmux (configured by ../.env)
 └── watch_browser.sh          start and tunnel web_viewer.py from the remote server
 ```
@@ -34,7 +34,7 @@ pip install -r requirements.txt    # CEM only needs numpy; DQN needs torch and t
 
 ```bash
 python3 src/test_tetris_sim.py
-python3 src/cem_train.py --num-workers 12                   # v3: Marathon score, ~35 min on 12 cores
+python3 src/cem_train.py --num-workers 12                   # v4: Marathon score, ~35 min on 12 cores
 python3 src/cem_train.py --objective lines --num-workers 12 # v2: survival at 20G, ~12 min
 python3 src/evaluate_policies.py --marathon cem_checkpoints/best_cem_weights.json --dqn-v1 --games 64
 ```

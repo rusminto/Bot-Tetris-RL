@@ -13,7 +13,7 @@ The script also matches `http://localhost:*` and `http://127.0.0.1:*`, so it wor
 
 ```text
 +-----------------------------------------------------+
-| 🤖 Tetris RL (CEM-RL v3.1)               [PLAYING]  |
+| 🤖 Tetris RL (CEM-RL v3.3)               [PLAYING]  |
 +-----------------------------------------------------+
 | Score: 595,730                    Level: 30         |
 | Lines: 303                        Pieces: 761       |
@@ -33,9 +33,9 @@ The script also matches `http://localhost:*` and `http://127.0.0.1:*`, so it wor
 - **Header**: drag to move the HUD.
 - **Telemetry**: score, level, lines and pieces read from the game; the last placement (piece, rotation, leftmost column); the policy's score for it.
 - **RL Engine**: switch policies at any time; the next piece uses the new one.
-  - **CEM-RL**: the default (v3, trained for Marathon score): highest score, builds for Tetrises.
+  - **CEM-RL**: the default (v4, trained for Marathon score): highest score, clears about 70% of its lines as Tetrises.
   - **DQN v2**: 6-feature network; tops out around Level 17–18.
-  - **DQN v1**: 4-feature network; completes the Marathon, scores less than CEM v3 and tops out a little more often.
+  - **DQN v1**: 4-feature network; completes the Marathon with about 20% fewer points than CEM v4.
   See [RL Algorithms](RL_ALGORITHMS.md) for the numbers.
 - **Pause Bot / Press Start**: pause to play yourself; Press Start sends Enter, then Space.
 - **Direct Snapping**: places each piece instantly from the engine's piece-activation hook, using only placements the piece can actually reach. **Keep it on**; it is the only mode that survives 20G (Level 20+).
@@ -67,7 +67,7 @@ python3 userscript/build.py
 ```
 
 It concatenates the modules in `userscript/src/` and embeds:
-- `reinforcement-learning/cem_checkpoints/best_cem_weights.json` (CEM; 8 or 10 weights),
+- `reinforcement-learning/cem_checkpoints/best_cem_weights.json` (CEM; 8, 10 or 11 weights),
 - `reinforcement-learning/weights_v2.json` and `weights_v1.json` (DQN),
 
 into `dist/tetris_bot.user.js`. Bump `VERSION` in `userscript/build.py` for every release so userscript managers pick up the update.
@@ -79,7 +79,7 @@ python3 userscript/build.py --cem-weights path/to/best_cem_weights.json --output
 cd userscript && node tests/e2e.js --bot /tmp/candidate.user.js
 ```
 
-To play with the survival-trained CEM v2 instead of v3, build with `--cem-weights reinforcement-learning/cem_checkpoints/best_cem_weights_v2_survival.json`.
+To play with an older CEM policy, build with `--cem-weights reinforcement-learning/cem_checkpoints/best_cem_weights_v3.json` (v3) or `best_cem_weights_v2_survival.json` (v2, survival-trained).
 
 ## 5. Tests
 
@@ -115,12 +115,12 @@ pip install -r requirements.txt    # CEM only needs numpy; DQN needs torch and t
 
 ```bash
 python3 src/test_tetris_sim.py                     # simulator sanity checks, a few seconds
-python3 src/cem_train.py --num-workers 12          # v3: Marathon score (~35 min on 12 cores)
+python3 src/cem_train.py --num-workers 12          # v4: Marathon score (~35 min on 12 cores)
 python3 src/cem_train.py --objective lines --num-workers 12   # v2: survival (~12 min)
 ```
 
 - Games run in `src/tetris_sim.py`, which follows the same rules as the browser search (SRS kicks, 20G reachability from Level 20, hold once per piece, guideline top out) and play.tetris.com's scoring.
-- `--objective score` (default) plays full Marathons and maximizes the score, minus 500,000 per top-out (`--topout-penalty`), with 10 features. `--objective lines` counts lines before topping out at 20G on a 10-row board without hold, with 8 features. Each objective sets its own defaults for `--features`, `--start-level`, `--board-height`, `--hold`, `--max-lines`, `--max-pieces`, `--generations` and `--init-weights`; any of them can be overridden.
+- `--objective score` (default) plays full Marathons and maximizes the score, minus 500,000 per top-out (`--topout-penalty`), with 11 features. `--objective lines` counts lines before topping out at 20G on a 10-row board without hold, with 8 features. Each objective sets its own defaults for `--features`, `--start-level`, `--board-height`, `--hold`, `--max-lines`, `--max-pieces`, `--generations` and `--init-weights`; any of them can be overridden.
 - At the end, the final mean and the best candidate are validated on held-out games next to the published Thiery & Scherrer weights, and the better learned one is written to `cem_checkpoints/best_cem_weights.json` (progress goes to `cem_progress.json` every generation). Runs are deterministic for a given `--seed`.
 - Compare policies on the same games: `python3 src/evaluate_policies.py --marathon cem_checkpoints/best_cem_weights.json --dqn-v1 --dqn-v2 --games 64`.
 
