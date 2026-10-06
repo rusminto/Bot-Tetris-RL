@@ -227,6 +227,17 @@ def test_ready_lines():
     assert m.ready_lines(rows2) == 0
 
 
+def test_well_distance():
+    m = Matrix()
+    rows = [0] * m.height
+    rows[0] = FULL_ROW & ~(1 << 9)
+    assert m.well_distance(m.column_heights(rows)) == 0  # well at the right wall
+    rows[0] = FULL_ROW & ~(1 << 3)
+    assert m.well_distance(m.column_heights(rows)) == 3
+    rows[0] = FULL_ROW & ~(1 << 2) & ~(1 << 8)
+    assert m.well_distance(m.column_heights(rows)) == 1  # two lowest columns: the one closer to a wall
+
+
 def test_marathon_and_dqn_policy():
     weights = [-12.63, 6.60, -9.22, -19.77, -13.08, -10.49, -1.61, -24.04]
     r = play_game(weights, seed=5, max_pieces=2000, start_level=1, max_lines=MARATHON_LINES)

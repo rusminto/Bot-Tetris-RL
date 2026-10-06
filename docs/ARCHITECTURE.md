@@ -22,7 +22,7 @@ flowchart TD
     subgraph GAME["Browser: play.tetris.com or the offline copy"]
         HOOK["SystemJS hook -> Player / Model objects"]
         SEARCH["Reachable placement search\n(same rules as tetris_sim.py)"]
-        POLICY["Policy: CEM (default), DQN v2, DQN v1"]
+        POLICY["Policy: V5 CEM-RL (default), V4/V3 CEM-RL, V2/V1 DQN"]
         EXEC["Execute actions, verify each step, hard drop"]
         HUD["HUD in the top window"]
         HOOK --> SEARCH --> POLICY --> EXEC
@@ -101,7 +101,7 @@ With Direct Snapping off, a 20 ms polling loop (`bot_loop.js`) plans with the st
 
 ### HUD and frames
 
-play.tetris.com runs the game in an iframe. The script runs in every frame (`@allFrames`); the iframe instance plays and posts telemetry to the top window with `postMessage`, and the top window hosts the HUD (`hud.js`) and sends commands back (pause, engine, start, Direct Snapping, key delay).
+play.tetris.com runs the game in an iframe. The script runs in every frame (`@allFrames`); the iframe instance plays and posts telemetry to the top window with `postMessage`, and the top window hosts the HUD (`hud.js`) and sends commands back (pause, engine, start, Direct Snapping, key delay). In the game iframe's console, `window.__tetrisBotStats.engine` shows which engine placed the last piece.
 
 ---
 
@@ -143,8 +143,8 @@ The original simulator used for DQN. It has the correct gravity and lock delay t
 
 | Placeholder | Source |
 | :--- | :--- |
-| `__CEM_WEIGHTS__` | `reinforcement-learning/cem_checkpoints/best_cem_weights.json`, or `--cem-weights` (8, 10 or 11 weights, normalized; falls back to the published Thiery & Scherrer weights) |
+| `__CEM_WEIGHTS__` | One weight list per CEM engine in the HUD, from `reinforcement-learning/cem_checkpoints/`: `best_cem_weights_v3.json` (V3, 10 weights), `best_cem_weights_v4.json` (V4, 11) and `best_cem_weights.json` (V5, 13; or `--cem-weights`), normalized; a missing file falls back to the published Thiery & Scherrer weights |
 | `__DQN_V2_WEIGHTS__` | `reinforcement-learning/weights_v2.json` |
 | `__DQN_V1_WEIGHTS__` | `reinforcement-learning/weights_v1.json` |
 
-The result is `dist/tetris_bot.user.js`. `userscript/serve_offline.py` serves the offline game from the `tetris/` submodule and injects that file into `game.html`, so the game files are never modified.
+The result is `dist/tetris_bot.user.js`. `userscript/serve_offline.py` serves the offline game from the `tetris/` submodule and injects that file into `game.html` and `index.html` (the page with the HUD), so the game files are never modified.

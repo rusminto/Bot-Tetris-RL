@@ -244,8 +244,9 @@
         return board;
     }
 
-    // Value of the board after locking `placement` under the active engine; -Infinity for a lock out
-    function scorePlacement(engine, rows, placement, level) {
+    // Value of the board after locking `placement` under the active engine; -Infinity for a lock out.
+    // holdAfter is the piece in hold after this move.
+    function scorePlacement(engine, rows, placement, level, holdAfter) {
         if (placement.cells.every(([, y]) => y >= VISIBLE_H)) return -Infinity;
         const res = lockPlacement(rows, placement.cells);
         let landing = 0;
@@ -253,8 +254,8 @@
         landing /= placement.cells.length;
         const board = rowsToBoard(res.rows);
         let score;
-        if (engine === 'cem') {
-            score = evaluateCemBoard(extractCemFeatures(board, landing, res.cleared, res.pieceMinosCleared));
+        if (isCemEngine(engine)) {
+            score = evaluateCemBoard(extractCemFeatures(board, landing, res.cleared, res.pieceMinosCleared, holdAfter), engine);
         } else if (engine === 'dqn_v1') {
             score = mlpForwardDqnV1(calculateDqnV1Features(board, res.cleared));
         } else {
@@ -265,10 +266,10 @@
         return score;
     }
 
-    function planBestPlacement(engine, rows, piece, start, gravity20G, level) {
+    function planBestPlacement(engine, rows, piece, start, gravity20G, level, holdAfter) {
         let best = null;
         for (const placement of searchReachablePlacements(rows, piece, start, gravity20G)) {
-            const score = scorePlacement(engine, rows, placement, level);
+            const score = scorePlacement(engine, rows, placement, level, holdAfter);
             if (best === null || score > best.score) best = Object.assign({ score }, placement);
         }
         return best;

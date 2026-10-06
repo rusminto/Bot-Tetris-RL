@@ -1,0 +1,72 @@
+=================================================================
+ 🧠 Cross-Entropy Method (CEM-RL) Tetris Policy Search
+ Objective:   score (top-out penalty 500,000)
+ Features:    13
+ Workers:     12 parallel processes
+ Population:  32, elite 6, 40 generations
+ Games/eval:  12 (max 1500 pieces each)
+ Environment: start level 1, 20 rows, hold on, ends at 300 lines
+ Output Dir:  cem_checkpoints_v5
+=================================================================
+Gen   1/40 | Best: 1,068,289.0 | Elite avg:  440,018.4 | Mean policy: 1,068,289.0 points (301 lines, 0 top-outs) | Pop median: -499,437.8 | Never topped out: 3/32 |  13.2s | total   0.2m
+Gen   2/40 | Best:  740,378.5 | Elite avg:  675,939.4 | Mean policy:  687,609.0 points (300 lines, 0 top-outs) | Pop median: -478,236.4 | Never topped out: 6/32 |  30.5s | total   0.7m
+Gen   3/40 | Best:  776,041.5 | Elite avg:  716,523.2 | Mean policy:  679,574.5 points (300 lines, 0 top-outs) | Pop median:  622,343.5 | Never topped out: 19/32 |  49.3s | total   1.6m
+Gen   4/40 | Best:  737,643.8 | Elite avg:  713,604.9 | Mean policy:  694,954.2 points (301 lines, 0 top-outs) | Pop median:  518,582.4 | Never topped out: 14/32 |  44.3s | total   2.3m
+Gen   5/40 | Best:  817,496.0 | Elite avg:  752,634.5 | Mean policy:  703,975.2 points (300 lines, 0 top-outs) | Pop median:  683,980.4 | Never topped out: 22/32 |  56.8s | total   3.3m
+Gen   6/40 | Best:  819,693.7 | Elite avg:  765,327.3 | Mean policy:  725,118.3 points (300 lines, 0 top-outs) | Pop median:  647,639.5 | Never topped out: 18/32 |  53.0s | total   4.1m
+Gen   7/40 | Best:  955,875.0 | Elite avg:  826,602.0 | Mean policy:  765,345.3 points (300 lines, 0 top-outs) | Pop median:  724,327.8 | Never topped out: 22/32 |  58.7s | total   5.1m
+Gen   8/40 | Best:  857,273.2 | Elite avg:  826,194.9 | Mean policy:  794,078.5 points (301 lines, 0 top-outs) | Pop median:  720,643.7 | Never topped out: 21/32 |  56.5s | total   6.1m
+Gen   9/40 | Best:  880,351.7 | Elite avg:  851,511.1 | Mean policy:  831,882.0 points (301 lines, 0 top-outs) | Pop median:  759,132.7 | Never topped out: 19/32 |  53.8s | total   7.0m
+Gen  10/40 | Best:  859,619.2 | Elite avg:  832,067.1 | Mean policy:  859,619.2 points (301 lines, 0 top-outs) | Pop median:  762,134.4 | Never topped out: 21/32 |  55.9s | total   7.9m
+Gen  11/40 | Best: 1,014,802.3 | Elite avg:  861,493.2 | Mean policy:  793,931.0 points (294 lines, 1 top-outs) | Pop median:  681,251.4 | Never topped out: 8/32 |  53.8s | total   8.8m
+Gen  12/40 | Best:  918,263.3 | Elite avg:  860,912.4 | Mean policy:  860,074.3 points (300 lines, 0 top-outs) | Pop median:  702,871.8 | Never topped out: 11/32 |  51.5s | total   9.6m
+Gen  13/40 | Best:  952,138.5 | Elite avg:  891,359.9 | Mean policy:  885,249.8 points (301 lines, 0 top-outs) | Pop median:  805,909.3 | Never topped out: 23/32 |  59.2s | total  10.6m
+Gen  14/40 | Best:  967,138.3 | Elite avg:  919,332.0 | Mean policy:  922,269.7 points (301 lines, 0 top-outs) | Pop median:  803,752.2 | Never topped out: 19/32 |  59.4s | total  11.6m
+Gen  15/40 | Best:  946,550.0 | Elite avg:  919,352.9 | Mean policy:  919,138.3 points (301 lines, 0 top-outs) | Pop median:  809,725.1 | Never topped out: 18/32 |  56.9s | total  12.6m
+Gen  16/40 | Best:  992,901.7 | Elite avg:  914,480.6 | Mean policy:  925,205.0 points (301 lines, 0 top-outs) | Pop median:  811,989.5 | Never topped out: 18/32 |  60.7s | total  13.6m
+Gen  17/40 | Best:  982,647.0 | Elite avg:  939,373.6 | Mean policy:  940,979.2 points (301 lines, 0 top-outs) | Pop median:  845,148.2 | Never topped out: 18/32 |  53.8s | total  14.5m
+Gen  18/40 | Best: 1,018,172.7 | Elite avg:  989,292.1 | Mean policy:  922,157.3 points (301 lines, 0 top-outs) | Pop median:  874,079.1 | Never topped out: 17/32 |  59.8s | total  15.5m
+Gen  19/40 | Best:  996,684.7 | Elite avg:  971,317.7 | Mean policy:  757,919.8 points (271 lines, 2 top-outs) | Pop median:  843,274.2 | Never topped out: 15/32 |  57.3s | total  16.4m
+Gen  20/40 | Best: 1,048,646.0 | Elite avg: 1,006,332.6 | Mean policy:  988,874.3 points (301 lines, 0 top-outs) | Pop median:  900,570.9 | Never topped out: 21/32 |  63.2s | total  17.5m
+Gen  21/40 | Best: 1,019,784.3 | Elite avg:  983,126.4 | Mean policy: 1,001,147.8 points (302 lines, 0 top-outs) | Pop median:  881,888.1 | Never topped out: 20/32 |  64.1s | total  18.6m
+Gen  22/40 | Best: 1,024,619.3 | Elite avg:  991,367.5 | Mean policy:  903,654.2 points (292 lines, 1 top-outs) | Pop median:  893,654.3 | Never topped out: 15/32 |  61.7s | total  19.6m
+Gen  23/40 | Best: 1,057,948.7 | Elite avg: 1,008,171.6 | Mean policy:  883,537.5 points (289 lines, 1 top-outs) | Pop median:  889,303.5 | Never topped out: 15/32 |  59.7s | total  20.6m
+Gen  24/40 | Best: 1,081,854.0 | Elite avg: 1,026,481.1 | Mean policy:  969,417.3 points (301 lines, 0 top-outs) | Pop median:  890,133.9 | Never topped out: 17/32 |  61.7s | total  21.6m
+Gen  25/40 | Best: 1,028,600.5 | Elite avg: 1,000,874.2 | Mean policy: 1,021,334.5 points (301 lines, 0 top-outs) | Pop median:  890,812.2 | Never topped out: 15/32 |  54.7s | total  22.5m
+Gen  26/40 | Best: 1,040,746.7 | Elite avg: 1,016,357.6 | Mean policy: 1,040,746.7 points (301 lines, 0 top-outs) | Pop median:  871,481.3 | Never topped out: 13/32 |  57.4s | total  23.5m
+Gen  27/40 | Best: 1,054,040.8 | Elite avg: 1,032,192.6 | Mean policy: 1,035,885.8 points (301 lines, 0 top-outs) | Pop median:  947,860.9 | Never topped out: 21/32 |  62.3s | total  24.5m
+Gen  28/40 | Best: 1,043,709.8 | Elite avg: 1,003,627.7 | Mean policy: 1,010,030.0 points (301 lines, 0 top-outs) | Pop median:  898,825.0 | Never topped out: 10/32 |  60.2s | total  25.5m
+Gen  29/40 | Best: 1,067,545.8 | Elite avg: 1,007,392.7 | Mean policy: 1,021,803.8 points (301 lines, 0 top-outs) | Pop median:  869,046.5 | Never topped out: 15/32 |  59.4s | total  26.5m
+Gen  30/40 | Best: 1,042,459.8 | Elite avg: 1,023,110.6 | Mean policy: 1,008,120.0 points (301 lines, 0 top-outs) | Pop median:  936,427.7 | Never topped out: 17/32 |  57.6s | total  27.5m
+Gen  31/40 | Best: 1,067,753.2 | Elite avg: 1,042,407.8 | Mean policy: 1,053,151.7 points (301 lines, 0 top-outs) | Pop median:  954,124.8 | Never topped out: 20/32 |  64.2s | total  28.6m
+Gen  32/40 | Best: 1,037,796.0 | Elite avg: 1,021,591.9 | Mean policy:  846,171.7 points (283 lines, 2 top-outs) | Pop median:  876,088.9 | Never topped out: 14/32 |  56.7s | total  29.5m
+Gen  33/40 | Best: 1,076,194.7 | Elite avg: 1,031,801.8 | Mean policy: 1,056,357.7 points (301 lines, 0 top-outs) | Pop median:  908,840.2 | Never topped out: 13/32 |  62.3s | total  30.5m
+Gen  34/40 | Best: 1,110,790.7 | Elite avg: 1,068,489.5 | Mean policy:  961,619.0 points (299 lines, 1 top-outs) | Pop median:  961,339.1 | Never topped out: 16/32 |  63.4s | total  31.6m
+Gen  35/40 | Best: 1,073,926.8 | Elite avg: 1,030,584.5 | Mean policy: 1,073,926.8 points (301 lines, 0 top-outs) | Pop median:  933,613.0 | Never topped out: 14/32 |  60.5s | total  32.6m
+Gen  36/40 | Best: 1,046,963.3 | Elite avg: 1,003,540.6 | Mean policy:  845,235.2 points (279 lines, 2 top-outs) | Pop median:  885,750.8 | Never topped out: 11/32 |  61.5s | total  33.6m
+Gen  37/40 | Best: 1,072,378.8 | Elite avg: 1,017,719.0 | Mean policy: 1,031,603.5 points (301 lines, 0 top-outs) | Pop median:  915,494.5 | Never topped out: 21/32 |  60.7s | total  34.6m
+Gen  38/40 | Best: 1,063,954.3 | Elite avg: 1,026,694.3 | Mean policy:  991,424.5 points (301 lines, 1 top-outs) | Pop median:  924,324.8 | Never topped out: 20/32 |  62.3s | total  35.7m
+Gen  39/40 | Best: 1,080,347.0 | Elite avg: 1,043,993.5 | Mean policy:  990,112.2 points (301 lines, 0 top-outs) | Pop median:  922,102.0 | Never topped out: 14/32 |  54.1s | total  36.6m
+Gen  40/40 | Best: 1,052,263.7 | Elite avg: 1,016,241.8 | Mean policy:  905,956.8 points (287 lines, 1 top-outs) | Pop median:  861,287.1 | Never topped out: 11/32 |  54.3s | total  37.5m
+=================================================================
+ Validating on 24 held-out games...
+   final_mean     : fitness  1,034,792.9 |   301.2 lines | score   1,034,793 | topped out 0/24
+   best_candidate : fitness  1,041,479.7 |   296.9 lines | score   1,062,313 | topped out 1/24
+   bcts_baseline  : fitness    626,726.3 |   300.1 lines | score     626,726 | topped out 0/24
+=================================================================
+ 🎉 CEM-RL Training Finished! Selected: best_candidate
+   landing_height      : -0.394084
+   eroded_piece_cells  : -0.199835
+   row_transitions     : -0.194194
+   col_transitions     : -0.283970
+   holes               : -0.332669
+   cumulative_wells    : +0.018366
+   hole_depth          : -0.134035
+   rows_with_holes     : -0.191503
+   clear_points        : -0.184206
+   ready_lines         : +0.081455
+   tetris              : +0.439089
+   well_distance       : -0.534301
+   hold_i              : -0.043876
+ Saved to: cem_checkpoints_v5/best_cem_weights.json
+=================================================================

@@ -2,27 +2,27 @@
 
 A userscript bot that plays the official [play.tetris.com](https://play.tetris.com/) Marathon with a policy learned by reinforcement learning. It reads the game engine's state directly, plans only the placements the piece can really reach (including at 20G, where pieces drop instantly), and plays all the way to the end of the Marathon at **Level 30**.
 
-![The bot finishing the Marathon on play.tetris.com: Level 30, 304 lines, 600,230 points](screenshots/marathon-level-30.png)
+![The bot finishing the Marathon on play.tetris.com: Level 30, 302 lines, 1,166,698 points](screenshots/marathon-level-30.png)
 
-*The bot (CEM v2) finishing the Marathon on play.tetris.com: Level 30, 304 lines, 600,230 points.*
+*The bot (V5 CEM-RL) finishing the Marathon on play.tetris.com: Level 30, 302 lines, 1,166,698 points.*
 
 ## Results
 
 | Policy | Offline game, headless Firefox | Simulated Marathon (256 games) | play.tetris.com |
 | :--- | :--- | :--- | :--- |
-| **CEM v4** (default, trained for score) | **973,409** mean over 6 games, all finished (best 1,097,202) | **955,289**, 1.6% topped out | |
-| CEM v3 | 826,296 mean over 6 games, all finished | 843,656, 1.2% topped out | |
+| **CEM v5** (default, trained for score) | **1,122,478** mean over 6 games, all finished (best 1,164,644) | **1,111,898**, 3.1% topped out | **1,166,698** (Level 30, 302 lines) |
+| CEM v4 | 973,409 mean over 6 games, all finished | 955,289, 1.6% topped out | |
 | DQN v1 | 759,388 mean over 6 games, all finished | 756,668, 1.6% topped out | 779,912 (Level 30, 304 lines) |
 | CEM v2 (trained for survival) | 600–616k, all finished | 624,104, none topped out | 600,230 (Level 30, 304 lines) |
 | Before the reachable placement search | topped out at Level 20–22 | | 307,196 (Level 22) |
 
-The Marathon ends at Level 30 / 300 lines, so once the bot survives it the score depends on how it clears lines: CEM v4 makes about 53 Tetrises per game (70% of its lines), CEM v2 almost only singles. How the Level 20 wall was found and fixed: [The 20G Gravity Breakthrough](docs/THE_20G_BREAKTHROUGH.md); how the policies compare: [RL Algorithms & Benchmarks](docs/RL_ALGORITHMS.md).
+The Marathon ends at Level 30 / 300 lines, so once the bot survives it the score depends on how it clears lines: CEM v5 makes about 63 Tetrises per game (85% of its lines), CEM v2 almost only singles. How the Level 20 wall was found and fixed: [The 20G Gravity Breakthrough](docs/THE_20G_BREAKTHROUGH.md); how the policies compare: [RL Algorithms & Benchmarks](docs/RL_ALGORITHMS.md).
 
 ## How it works
 
 1. **Hook the engine, not the screen.** The userscript wraps SystemJS module registration to get the game's `Player` and `Model` objects, so it reads the board, the live piece, hold and queue directly and drives the piece through the engine's own control actions.
 2. **Search reachable placements.** When a piece activates, the bot runs a breadth-first search over left/right moves and SRS rotations with wall kicks. From Level 20 the fall speed is 0 ms, so the piece drops onto the stack after every action; the search models that, so the bot never plans a column the piece can't get to.
-3. **Score them with a learned policy.** The default policy is linear over 11 board features (Thiery & Scherrer's 8, plus the points of the clear, how many lines an I piece could clear, and whether the placement clears a Tetris), trained with the **Cross-Entropy Method** to maximize the Marathon score in [`tetris_sim.py`](reinforcement-learning/src/tetris_sim.py), a simulator with the same rules and scoring as the game. Two DQN networks are available as alternatives.
+3. **Score them with a learned policy.** The default policy is linear over 13 features (Thiery & Scherrer's 8, plus five for Tetrises: the points of the clear, how many lines an I piece could clear, whether the placement clears a Tetris, how far the well is from the wall, and whether an I is in hold), trained with the **Cross-Entropy Method** to maximize the Marathon score in [`tetris_sim.py`](reinforcement-learning/src/tetris_sim.py), a simulator with the same rules and scoring as the game. The older policies (V3 and V4 CEM-RL, V1 and V2 DQN) can be picked in the HUD.
 4. **Execute and verify.** Actions are applied one at a time; after each one the bot checks where the engine put the piece and re-plans if it differs, then hard-drops.
 
 Details: [Architecture](docs/ARCHITECTURE.md) · [RL algorithms & benchmarks](docs/RL_ALGORITHMS.md).
@@ -53,7 +53,7 @@ cd reinforcement-learning
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 python3 src/test_tetris_sim.py
-python3 src/cem_train.py --num-workers 12    # ~35 min on 12 cores, writes cem_checkpoints/best_cem_weights.json
+python3 src/cem_train.py --num-workers 12    # ~40 min on 12 cores, writes cem_checkpoints/best_cem_weights.json
 python3 src/evaluate_policies.py --marathon cem_checkpoints/best_cem_weights.json --dqn-v1
 cd .. && python3 userscript/build.py           # embed the new weights
 ```
@@ -71,7 +71,7 @@ To train on a remote server, copy `.env.example` to `.env`, fill in the server, 
 │   └── tests/                     headless Firefox end-to-end test, JS/Python feature parity test
 ├── reinforcement-learning/
 │   ├── src/                       simulators, CEM and DQN training, evaluation
-│   ├── cem_checkpoints/           CEM weights used by the userscript (v4), v3, v2 survival and v1 legacy
+│   ├── cem_checkpoints/           CEM weights used by the userscript (v5), v4, v3, v2 survival and v1 legacy
 │   ├── checkpoints*/              DQN checkpoints, weights_v1.json / weights_v2.json exports
 │   ├── logs/                      training logs
 │   └── run_training_remote.sh     sync + train on a remote server (configured by .env)

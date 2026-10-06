@@ -358,12 +358,12 @@ class Matrix:
                         heights[c] = y + 1
         return heights
 
-    def ready_lines(self, rows):
+    def ready_lines(self, rows, heights=None):
         """
         Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
         above that column's top that are full except for it. Only a strictly lowest column can qualify.
         """
-        heights = self.column_heights(rows)
+        heights = heights or self.column_heights(rows)
         h = min(heights)
         if heights.count(h) != 1:
             return 0
@@ -372,6 +372,12 @@ class Matrix:
         while n < 4 and h + n < self.visible and rows[h + n] == mask:
             n += 1
         return n
+
+    @staticmethod
+    def well_distance(heights):
+        """Columns between the lowest column and the nearest wall (0-4; the closest one if several are lowest)."""
+        h = min(heights)
+        return min(min(c, WIDTH - 1 - c) for c in range(WIDTH) if heights[c] == h)
 
     def dqn_features(self, rows):
         """(holes, bumpiness, total height, max height) over the visible rows, as calculateDqnV*Features."""
@@ -461,9 +467,9 @@ class Scorer:
 # Policies: score after-states, like the userscript's engines
 # ---------------------------------------------------------------------------
 class AfterState:
-    __slots__ = ("rows", "cleared", "eroded", "landing", "cells", "is_hold", "hard_drop_rows", "tspin")
+    __slots__ = ("rows", "cleared", "eroded", "landing", "cells", "is_hold", "hard_drop_rows", "tspin", "hold_after")
 
-    def __init__(self, rows, cleared, eroded, landing, cells, is_hold, hard_drop_rows, tspin=0):
+    def __init__(self, rows, cleared, eroded, landing, cells, is_hold, hard_drop_rows, tspin=0, hold_after=None):
         self.rows = rows
         self.cleared = cleared
         self.eroded = eroded
@@ -472,28 +478,32 @@ class AfterState:
         self.is_hold = is_hold
         self.hard_drop_rows = hard_drop_rows
         self.tspin = tspin
+        self.hold_after = hold_after  # the piece in hold after this move
 
 
 # Value of the Tetris feature for a placement that clears 4 lines (a Tetris's base points / 100)
 TETRIS_FEATURE = LINE_CLEAR_POINTS[4] // 100
 
 
-def cem_features(matrix, rows, landing_height, num_cleared, piece_minos_cleared):
-    """All 11 CEM features of an after-state, as extractCemFeatures in the userscript returns them."""
+def cem_features(matrix, rows, landing_height, num_cleared, piece_minos_cleared, hold_after=None):
+    """All 13 CEM features of an after-state, as extractCemFeatures in the userscript returns them."""
+    heights = matrix.column_heights(rows)
     return matrix.features(rows, landing_height, num_cleared, piece_minos_cleared) + (
-        LINE_CLEAR_POINTS[num_cleared] / 100, matrix.ready_lines(rows), TETRIS_FEATURE if num_cleared == 4 else 0)
+        LINE_CLEAR_POINTS[num_cleared] / 100, matrix.ready_lines(rows, heights), TETRIS_FEATURE if num_cleared == 4 else 0,
+        matrix.well_distance(heights), 1 if hold_after == "I" else 0)
 
 
 class LinearPolicy:
     """
-    CEM policy: w . f over the first 8, 10 or 11 of cem_features(): the 8 Thiery & Scherrer features, the
-    base points of the clear / 100 (0, 1, 3, 5, 8), ready_lines, and 8 if the placement clears a Tetris.
+    CEM policy: w . f over the first 8, 10, 11 or 13 of cem_features(): the 8 Thiery & Scherrer features,
+    the base points of the clear / 100 (0, 1, 3, 5, 8), ready_lines, 8 if the placement clears a Tetris,
+    well_distance, and 1 if an I is in hold after the move.
     """
 
     def __init__(self, weights):
         self.weights = [float(w) for w in weights]
-        if len(self.weights) not in (8, 10, 11):
-            raise ValueError("expected 8, 10 or 11 weights")
+        if len(self.weights) not in (8, 10, 11, 13):
+            raise ValueError("expected 8, 10, 11 or 13 weights")
 
     def values(self, matrix, afters, level):
         w = self.weights
@@ -503,9 +513,12 @@ class LinearPolicy:
             f = matrix.features(a.rows, a.landing, a.cleared, a.eroded)
             v = sum(wi * fi for wi, fi in zip(w, f))
             if n > 8:
-                v += w[8] * LINE_CLEAR_POINTS[a.cleared] / 100 + w[9] * matrix.ready_lines(a.rows)
-                if n == 11 and a.cleared == 4:
+                heights = matrix.column_heights(a.rows) if n == 13 else None
+                v += w[8] * LINE_CLEAR_POINTS[a.cleared] / 100 + w[9] * matrix.ready_lines(a.rows, heights)
+                if n >= 11 and a.cleared == 4:
                     v += w[10] * TETRIS_FEATURE
+                if n == 13:
+                    v += w[11] * matrix.well_distance(heights) + w[12] * (a.hold_after == "I")
             out.append(v)
         return out
 
@@ -612,7 +625,8 @@ def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_hei
                     continue  # lock out
                 nr, cleared, eroded = matrix.lock(rows, cells)
                 landing = sum(y + 1 for _, y in cells) / len(cells)
-                afters.append(AfterState(nr, cleared, eroded, landing, cells, is_hold, drop, best_tspin(tspins, cleared)))
+                afters.append(AfterState(nr, cleared, eroded, landing, cells, is_hold, drop, best_tspin(tspins, cleared),
+                                         cur if is_hold else hold))
         if not afters:
             return result(pieces, True)
 

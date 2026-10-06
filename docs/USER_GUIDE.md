@@ -13,14 +13,14 @@ The script also matches `http://localhost:*` and `http://127.0.0.1:*`, so it wor
 
 ```text
 +-----------------------------------------------------+
-| 🤖 Tetris RL (CEM-RL v3.3)               [PLAYING]  |
+| 🤖 Tetris RL  script v3.5                [PLAYING]  |
 +-----------------------------------------------------+
-| Score: 595,730                    Level: 30         |
-| Lines: 303                        Pieces: 761       |
+| Score: 1,103,430                  Level: 30         |
+| Lines: 302                        Pieces: 765       |
 | Action: O -> Rot 0, Col 6                           |
 | Fitness/Q: -14.53                                   |
 +-----------------------------------------------------+
-| RL Engine:  [ 🧠 CEM-RL (Policy Search - Superhuman) ]|
+| RL Engine:        [ 🧠 V5 CEM-RL (13 features) ▾ ]  |
 +-----------------------------------------------------+
 | [ Pause Bot ]                    [ Press Start ]    |
 +-----------------------------------------------------+
@@ -28,15 +28,22 @@ The script also matches `http://localhost:*` and `http://127.0.0.1:*`, so it wor
 +-----------------------------------------------------+
 | Key Delay:  [----o---------]  15ms                  |
 +-----------------------------------------------------+
+| Default. Keeps the well at the left or right wall   |
+| and saves I pieces in hold: ~85% Tetrises ...       |
++-----------------------------------------------------+
 ```
 
 - **Header**: drag to move the HUD.
 - **Telemetry**: score, level, lines and pieces read from the game; the last placement (piece, rotation, leftmost column); the policy's score for it.
-- **RL Engine**: switch policies at any time; the next piece uses the new one.
-  - **CEM-RL**: the default (v4, trained for Marathon score): highest score, clears about 70% of its lines as Tetrises.
-  - **DQN v2**: 6-feature network; tops out around Level 17–18.
-  - **DQN v1**: 4-feature network; completes the Marathon with about 20% fewer points than CEM v4.
-  See [RL Algorithms](RL_ALGORITHMS.md) for the numbers.
+- **RL Engine**: switch policies at any time; the next piece uses the new one. The text at the bottom of the HUD describes the selected one. Mean scores are from 6 offline games each; see [RL Algorithms](RL_ALGORITHMS.md) for the details.
+
+  | Option | Policy | Offline game |
+  | :--- | :--- | :--- |
+  | V1 DQN (4 features) | Neural network; finishes the Marathon, mostly with doubles and triples | ~760k |
+  | V2 DQN (6 features) | Neural network, not trained for 20G; tops out around Level 17–18 | — |
+  | V3 CEM-RL (10 features) | Linear policy trained for Marathon score; about half of its lines are Tetrises | ~830k |
+  | V4 CEM-RL (11 features) | Adds a Tetris feature; ~70% Tetrises, with the well in any column | ~970k |
+  | **V5 CEM-RL (13 features)** | **Default.** Keeps the well at a wall and saves I pieces in hold; ~85% Tetrises, but tops out a little more often than V4 | **~1.12M** |
 - **Pause Bot / Press Start**: pause to play yourself; Press Start sends Enter, then Space.
 - **Direct Snapping**: places each piece instantly from the engine's piece-activation hook, using only placements the piece can actually reach. **Keep it on**; it is the only mode that survives 20G (Level 20+).
 - **Key Delay**: only used with Direct Snapping off (keystroke mode, 10–60 ms between key presses).
@@ -58,7 +65,7 @@ python3 userscript/build.py
 python3 userscript/serve_offline.py          # http://localhost:8000/  (--port to change)
 ```
 
-`serve_offline.py` adds the bot to `game.html` while serving it, so the game files stay untouched. If you already use Tampermonkey, run it with `--no-bot` so the bot isn't loaded twice.
+`serve_offline.py` adds the bot to the game page (`game.html`) and to the page around it (`index.html`, which shows the HUD) while serving them, so the game files stay untouched. If you already use Tampermonkey, run it with `--no-bot` so the bot isn't loaded twice.
 
 ## 4. Building the userscript
 
@@ -67,19 +74,19 @@ python3 userscript/build.py
 ```
 
 It concatenates the modules in `userscript/src/` and embeds:
-- `reinforcement-learning/cem_checkpoints/best_cem_weights.json` (CEM; 8, 10 or 11 weights),
+- the CEM weights in `reinforcement-learning/cem_checkpoints/`: `best_cem_weights.json` (V5), `best_cem_weights_v4.json` (V4) and `best_cem_weights_v3.json` (V3),
 - `reinforcement-learning/weights_v2.json` and `weights_v1.json` (DQN),
 
 into `dist/tetris_bot.user.js`. Bump `VERSION` in `userscript/build.py` for every release so userscript managers pick up the update.
 
-To try other CEM weights without replacing the shipped ones, build a candidate elsewhere and test it with `--bot`:
+To try other CEM weights without replacing the shipped ones, build a candidate elsewhere (`--cem-weights` replaces the V5 engine's weights) and test it with `--bot`:
 
 ```bash
 python3 userscript/build.py --cem-weights path/to/best_cem_weights.json --output /tmp/candidate.user.js
 cd userscript && node tests/e2e.js --bot /tmp/candidate.user.js
 ```
 
-To play with an older CEM policy, build with `--cem-weights reinforcement-learning/cem_checkpoints/best_cem_weights_v3.json` (v3) or `best_cem_weights_v2_survival.json` (v2, survival-trained).
+The older policies are in the HUD's RL Engine list. To play with the survival-trained CEM v2, which isn't, build with `--cem-weights reinforcement-learning/cem_checkpoints/best_cem_weights_v2_survival.json`; it then runs as the V5 option.
 
 ## 5. Tests
 
@@ -98,7 +105,7 @@ npm install
 npx playwright install firefox
 node tests/e2e.js                              # normal game until the Marathon ends (~3 min)
 node tests/e2e.js --force-20g --seconds 180    # 0 ms gravity and 150 ms lock delay from the first piece
-node tests/e2e.js --engine dqn_v1              # cem (default), dqn_v2 or dqn_v1
+node tests/e2e.js --engine cem_v4              # cem_v5 (default), cem_v4, cem_v3, dqn_v2 or dqn_v1
 ```
 
 The exit code is 0 if the game is still running or reached 300 lines, and 2 if it topped out.
@@ -115,12 +122,12 @@ pip install -r requirements.txt    # CEM only needs numpy; DQN needs torch and t
 
 ```bash
 python3 src/test_tetris_sim.py                     # simulator sanity checks, a few seconds
-python3 src/cem_train.py --num-workers 12          # v4: Marathon score (~35 min on 12 cores)
+python3 src/cem_train.py --num-workers 12          # v5: Marathon score (~40 min on 12 cores)
 python3 src/cem_train.py --objective lines --num-workers 12   # v2: survival (~12 min)
 ```
 
 - Games run in `src/tetris_sim.py`, which follows the same rules as the browser search (SRS kicks, 20G reachability from Level 20, hold once per piece, guideline top out) and play.tetris.com's scoring.
-- `--objective score` (default) plays full Marathons and maximizes the score, minus 500,000 per top-out (`--topout-penalty`), with 11 features. `--objective lines` counts lines before topping out at 20G on a 10-row board without hold, with 8 features. Each objective sets its own defaults for `--features`, `--start-level`, `--board-height`, `--hold`, `--max-lines`, `--max-pieces`, `--generations` and `--init-weights`; any of them can be overridden.
+- `--objective score` (default) plays full Marathons and maximizes the score, minus 500,000 per top-out (`--topout-penalty`), with 13 features, as a fine-tune of a warm start (small `--initial-sigma`, 24 games per candidate). `--objective lines` counts lines before topping out at 20G on a 10-row board without hold, with 8 features. Each objective sets its own defaults for `--features`, `--start-level`, `--board-height`, `--hold`, `--max-lines`, `--max-pieces`, `--generations`, `--games-per-eval`, `--initial-sigma`, `--noise-factor` and `--init-weights`; any of them can be overridden.
 - At the end, the final mean and the best candidate are validated on held-out games next to the published Thiery & Scherrer weights, and the better learned one is written to `cem_checkpoints/best_cem_weights.json` (progress goes to `cem_progress.json` every generation). Runs are deterministic for a given `--seed`.
 - Compare policies on the same games: `python3 src/evaluate_policies.py --marathon cem_checkpoints/best_cem_weights.json --dqn-v1 --dqn-v2 --games 64`.
 

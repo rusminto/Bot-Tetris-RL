@@ -55,6 +55,8 @@
 
             const holdModel = getPlayerModel(player);
             const canHold = holdModel && typeof holdModel.canHoldLivePiece === 'function' ? holdModel.canHoldLivePiece() : false;
+            const heldPiece = player.getHoldPiece ? player.getHoldPiece() : null;
+            const heldName = heldPiece && heldPiece.getPieceDefinition ? heldPiece.getPieceDefinition().getTypeName() : null;
             let holdName = null;
             if (canHold) {
                 const holdPiece = player.getHoldPiece ? player.getHoldPiece() : null;
@@ -71,8 +73,8 @@
             let chosenScore = 0;
 
             // 4. Decision Making: CEM-RL vs DQN V2 vs DQN V1
-            if (activeEngine === 'cem') {
-                const result = selectBestCemPlacement(board, pieceName, holdName, canHold);
+            if (isCemEngine(activeEngine)) {
+                const result = selectBestCemPlacement(board, pieceName, holdName, canHold, heldName);
                 if (result) {
                     useHold = result.isHold;
                     chosenPlacement = result;

@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 // Load policies.js the way build.py embeds it, with dummy weights
 function loadPolicies() {
   const src = fs.readFileSync(path.join(ROOT, 'userscript', 'src', 'policies.js'), 'utf8')
-    .replace('__CEM_WEIGHTS__', '[]').replace('__DQN_V1_WEIGHTS__', '{}').replace('__DQN_V2_WEIGHTS__', '{}');
+    .replace('__CEM_WEIGHTS__', '{}').replace('__DQN_V1_WEIGHTS__', '{}').replace('__DQN_V2_WEIGHTS__', '{}');
   return new Function(`${src}\nreturn { extractCemFeatures, calculateDqnV1Features, calculateDqnV2Features };`)();
 }
 
@@ -36,7 +36,8 @@ function randomCase(rand) {
     if (well >= 0 && rand() < 0.7) r = 1023 & ~(1 << well);
     rows[y] = r;
   }
-  return { rows, landing: Math.round(rand() * 40) / 2, cleared: Math.floor(rand() * 5), eroded: Math.floor(rand() * 5), level: 1 + Math.floor(rand() * 30) };
+  const hold = [null, 'I', 'J', 'L', 'O', 'S', 'T', 'Z'][Math.floor(rand() * 8)];
+  return { rows, landing: Math.round(rand() * 40) / 2, cleared: Math.floor(rand() * 5), eroded: Math.floor(rand() * 5), level: 1 + Math.floor(rand() * 30), hold };
 }
 
 function toBoard(rows) {
@@ -57,7 +58,7 @@ m = Matrix()
 out = []
 for c in json.load(open(sys.argv[1])):
     rows = c["rows"] + [0] * 4
-    cem = list(cem_features(m, rows, c["landing"], c["cleared"], c["eroded"]))
+    cem = list(cem_features(m, rows, c["landing"], c["cleared"], c["eroded"], c["hold"]))
     holes, bump, total, top = m.dqn_features(rows)
     v1 = [c["cleared"], holes, bump, total]
     v2 = v1 + [top, max(0, min(30, c["level"]) - 1) / 29.0]
@@ -81,7 +82,7 @@ function main() {
   cases.forEach((c, i) => {
     const board = toBoard(c.rows);
     const got = {
-      cem: js.extractCemFeatures(board, c.landing, c.cleared, c.eroded),
+      cem: js.extractCemFeatures(board, c.landing, c.cleared, c.eroded, c.hold),
       v1: js.calculateDqnV1Features(board, c.cleared),
       v2: js.calculateDqnV2Features(board, c.cleared, c.level),
     };
@@ -93,7 +94,7 @@ function main() {
       }
     }
   });
-  console.log(failures ? `FAIL: ${failures} mismatches` : `ok: ${cases.length} boards, CEM (11) and DQN v1/v2 features match`);
+  console.log(failures ? `FAIL: ${failures} mismatches` : `ok: ${cases.length} boards, CEM (13) and DQN v1/v2 features match`);
   process.exit(failures ? 1 : 0);
 }
 

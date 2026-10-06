@@ -41,9 +41,8 @@
         if (e.data.type === 'TETRIS_BOT_CMD') {
             if (e.data.cmd === 'toggle') botEnabled = e.data.val;
             if (e.data.cmd === 'engine') {
-                activeEngine = e.data.val;
-                const sel = document.getElementById("bot-engine-select");
-                if (sel) sel.value = activeEngine;
+                setActiveEngine(e.data.val);
+                showEngineInHud(activeEngine);
             }
             if (e.data.cmd === 'start') {
                 sendGameKey(13, 'Enter');
@@ -56,7 +55,7 @@
 
     function broadcastCommand(cmd, val) {
         if (cmd === 'toggle') botEnabled = val;
-        if (cmd === 'engine') activeEngine = val;
+        if (cmd === 'engine') setActiveEngine(val);
         if (cmd === 'speed') keyDelay = val;
         if (cmd === 'snap') snapMode = val;
         if (cmd === 'start') {

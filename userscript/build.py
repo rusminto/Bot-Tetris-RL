@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "userscript" / "src"
 RL = ROOT / "reinforcement-learning"
 
-VERSION = "3.3"  # bump on every release so userscript managers pick up the update
+VERSION = "3.5"  # bump on every release so userscript managers pick up the update
 
 # Concatenated in this order inside one IIFE (header.js opens it, hud.js closes it)
 MODULES = [
@@ -38,9 +38,18 @@ def load_cem_weights(path):
     return [round(w / norm, 6) for w in raw] if norm > 1e-6 else raw
 
 
+# CEM engines in the HUD and their weights; the newest one is the default and can be replaced with --cem-weights
+CEM_ENGINES = {
+    "cem_v3": RL / "cem_checkpoints" / "best_cem_weights_v3.json",
+    "cem_v4": RL / "cem_checkpoints" / "best_cem_weights_v4.json",
+    "cem_v5": RL / "cem_checkpoints" / "best_cem_weights.json",
+}
+
+
 def build(output, cem_weights):
+    engines = dict(CEM_ENGINES, cem_v5=cem_weights)
     tokens = {
-        "__CEM_WEIGHTS__": json.dumps(load_cem_weights(cem_weights)),
+        "__CEM_WEIGHTS__": json.dumps({name: load_cem_weights(path) for name, path in engines.items()}),
         "__DQN_V1_WEIGHTS__": json.dumps(json.loads((RL / "weights_v1.json").read_text())),
         "__DQN_V2_WEIGHTS__": json.dumps(json.loads((RL / "weights_v2.json").read_text())),
     }
@@ -59,6 +68,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build the Tetris RL userscript")
     parser.add_argument("--output", type=Path, default=ROOT / "dist" / "tetris_bot.user.js")
     parser.add_argument("--cem-weights", type=Path, default=RL / "cem_checkpoints" / "best_cem_weights.json",
-                        help="CEM weights to embed (e.g. a candidate from a new training run)")
+                        help="Weights for the V5 CEM-RL engine, the default (e.g. a candidate from a new training run)")
     args = parser.parse_args()
     build(args.output.resolve(), args.cem_weights.resolve())

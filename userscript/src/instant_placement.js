@@ -2,7 +2,7 @@
     // 7. BOT DECISION & EXECUTION LOOP
     // ==========================================
     let isExecutingInstantPlacement = false;
-    const placementStats = { placed: 0, held: 0, mismatches: 0, unreadable: 0 };
+    const placementStats = { placed: 0, held: 0, mismatches: 0, unreadable: 0, engine: null };
     window.__tetrisBotStats = placementStats;
 
     function sameState(a, b) {
@@ -45,19 +45,19 @@
         const rows = readMatrixRows(matrix);
         const gravity20G = isGravity20G(model);
         const engine = activeEngine;
-        let plan = planBestPlacement(engine, rows, pieceName, start, gravity20G, stats.level);
+        const heldName = getPieceName(player.getHoldPiece ? player.getHoldPiece() : null);
+        let plan = planBestPlacement(engine, rows, pieceName, start, gravity20G, stats.level, heldName);
 
         // Hold if the piece that would be swapped in has a better reachable placement.
         // (Player has no canHoldLivePiece; the model's flag goes false once this piece was held.)
         const canHold = typeof model.canHoldLivePiece === 'function' ? model.canHoldLivePiece() : false;
         if (canHold) {
             const queue = player.getPieceQueue ? player.getPieceQueue() : null;
-            const holdName = getPieceName(player.getHoldPiece ? player.getHoldPiece() : null)
-                || getPieceName(queue ? queue.getPieceAtIndex(0) : null);
+            const holdName = heldName || getPieceName(queue ? queue.getPieceAtIndex(0) : null);
             if (holdName && SRS_CELLS[holdName]) {
                 const spawn = srsSpawnState(holdName);
                 if (srsFits(rows, holdName, spawn[0], spawn[1], spawn[2])) {
-                    const holdPlan = planBestPlacement(engine, rows, holdName, spawn, gravity20G, stats.level);
+                    const holdPlan = planBestPlacement(engine, rows, holdName, spawn, gravity20G, stats.level, pieceName);
                     if (holdPlan && (!plan || holdPlan.score > plan.score)) {
                         lastHandledPiece = livePiece;
                         placementStats.held++;
@@ -80,12 +80,13 @@
             if (outcome === 'lost') return 'placed';
             if (outcome === 'ok') break;
             const actual = readLivePieceState(livePiece, pieceName);
-            const replan = actual && planBestPlacement(engine, rows, pieceName, actual, gravity20G, stats.level);
+            const replan = actual && planBestPlacement(engine, rows, pieceName, actual, gravity20G, stats.level, heldName);
             if (!replan) break;
             plan = replan;
         }
 
         placementStats.placed++;
+        placementStats.engine = engine;  // the engine that placed the last piece
         if (player.getLivePiece() === livePiece) {
             if (typeof player.forceLivePieceHardDrop === 'function') {
                 player.forceLivePieceHardDrop();

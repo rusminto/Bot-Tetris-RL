@@ -1,11 +1,22 @@
     // ==========================================
     // 1. AI POLICY WEIGHTS (CEM-RL & DQN V1/V2)
     // ==========================================
-    const CEM_WEIGHTS = __CEM_WEIGHTS__;
+    const CEM_WEIGHTS = __CEM_WEIGHTS__;  // { cem_v3: [10 weights], cem_v4: [11], cem_v5: [13] }
     const DQN_V1_WEIGHTS = __DQN_V1_WEIGHTS__;
     const DQN_V2_WEIGHTS = __DQN_V2_WEIGHTS__;
 
-    let activeEngine = 'cem'; // 'cem' (Policy Search), 'dqn_v2' (DQN v2 6-feat), or 'dqn_v1' (DQN v1 4-feat)
+    const ENGINE_IDS = ['dqn_v1', 'dqn_v2', ...Object.keys(CEM_WEIGHTS)];
+    let activeEngine = 'cem_v5';
+
+    function isCemEngine(engine) {
+        return Object.prototype.hasOwnProperty.call(CEM_WEIGHTS, engine);
+    }
+
+    // Engine selection from the HUD or a command; unknown names are ignored
+    function setActiveEngine(engine) {
+        if (ENGINE_IDS.includes(engine)) activeEngine = engine;
+        return activeEngine;
+    }
 
     // ==========================================
     // 2. TETRIS PIECE DEFINITIONS
@@ -64,17 +75,14 @@
     }
 
     // ==========================================
-    // 3. CEM-RL EVALUATION ENGINE (8, 10 OR 11 FEATURES)
+    // 3. CEM-RL EVALUATION ENGINE (8, 10, 11 OR 13 FEATURES)
     // ==========================================
     // Base points of a clear / 100, indexed by lines cleared (feature 9)
     const CLEAR_POINTS = [0, 1, 3, 5, 8];
     // Feature 11 of a placement that clears a Tetris (a Tetris's base points / 100), else 0
     const TETRIS_FEATURE = 8;
 
-    // Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
-    // above that column's top that are full except for it. Only a strictly lowest column can qualify.
-    // Same as Matrix.ready_lines in tetris_sim.py (feature 10).
-    function readyLines(board) {
+    function columnHeights(board) {
         const heights = new Array(10).fill(0);
         for (let c = 0; c < 10; c++) {
             for (let r = 0; r < 20; r++) {
@@ -84,6 +92,13 @@
                 }
             }
         }
+        return heights;
+    }
+
+    // Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
+    // above that column's top that are full except for it. Only a strictly lowest column can qualify.
+    // Same as Matrix.ready_lines in tetris_sim.py (feature 10).
+    function readyLines(board, heights) {
         const h = Math.min(...heights);
         const col = heights.indexOf(h);
         if (heights.lastIndexOf(h) !== col) return 0;
@@ -98,8 +113,19 @@
         return n;
     }
 
-    function extractCemFeatures(board, landingHeight, numCleared, pieceMinosCleared) {
+    // Columns between the lowest column and the nearest wall (0-4; the closest one if several are
+    // lowest). Same as Matrix.well_distance in tetris_sim.py (feature 12).
+    function wellDistance(heights) {
+        const h = Math.min(...heights);
+        let best = 4;
+        for (let c = 0; c < 10; c++) if (heights[c] === h) best = Math.min(best, c, 9 - c);
+        return best;
+    }
+
+    // holdAfter: the piece in hold after this move (feature 13 is 1 for an I)
+    function extractCemFeatures(board, landingHeight, numCleared, pieceMinosCleared, holdAfter) {
         const eroded = numCleared * pieceMinosCleared;
+        const heights = columnHeights(board);
 
         // 1. Row transitions
         let rowTrans = 0;
@@ -188,15 +214,18 @@
             holeDepth,
             rowsWithHolesCount,
             CLEAR_POINTS[numCleared] || 0,
-            readyLines(board),
-            numCleared === 4 ? TETRIS_FEATURE : 0
+            readyLines(board, heights),
+            numCleared === 4 ? TETRIS_FEATURE : 0,
+            wellDistance(heights),
+            holdAfter === 'I' ? 1 : 0
         ];
     }
 
-    function selectBestCemPlacement(board, pieceName, holdPieceName, canHold) {
-        const candidates = [{ piece: pieceName, isHold: false }];
+    // holdPieceName: the piece hold would bring in; heldName: the piece in hold now (null if empty)
+    function selectBestCemPlacement(board, pieceName, holdPieceName, canHold, heldName) {
+        const candidates = [{ piece: pieceName, isHold: false, holdAfter: heldName }];
         if (canHold && holdPieceName && PIECES[holdPieceName]) {
-            candidates.push({ piece: holdPieceName, isHold: true });
+            candidates.push({ piece: holdPieceName, isHold: true, holdAfter: pieceName });
         }
 
         let bestVal = -Infinity;
@@ -276,7 +305,7 @@
                         }
                     }
 
-                    const feat = extractCemFeatures(clearedBoard, landingHeight, numCleared, pieceMinosCleared);
+                    const feat = extractCemFeatures(clearedBoard, landingHeight, numCleared, pieceMinosCleared, cand.holdAfter);
                     const score = evaluateCemBoard(feat);
 
                     if (score > bestVal) {
@@ -297,10 +326,12 @@
         return bestResult;
     }
 
-    function evaluateCemBoard(feat) {
+    // Each CEM version uses the first 10, 11 or 13 features
+    function evaluateCemBoard(feat, engine = activeEngine) {
+        const weights = CEM_WEIGHTS[engine];
         let score = 0;
-        for (let k = 0; k < CEM_WEIGHTS.length; k++) {
-            score += CEM_WEIGHTS[k] * feat[k];
+        for (let k = 0; k < weights.length; k++) {
+            score += weights[k] * feat[k];
         }
         return score;
     }

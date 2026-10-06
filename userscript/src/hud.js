@@ -1,6 +1,28 @@
     // ==========================================
     // 9. FLOATING HUD OVERLAY (TOP FRAME ONLY)
     // ==========================================
+    // RL Engine dropdown, oldest first; offline-game scores are means over 6 games (docs/RL_ALGORITHMS.md)
+    const ENGINE_OPTIONS = [
+        { id: 'dqn_v1', label: '🤖 V1 DQN (4 features)',
+          about: 'Neural network over 4 board features. Finishes the Marathon, mostly with doubles and triples (~760k points).' },
+        { id: 'dqn_v2', label: '🤖 V2 DQN (6 features)',
+          about: 'Neural network over 6 features. Not trained for 20G: tops out around Level 17–18.' },
+        { id: 'cem_v3', label: '🧠 V3 CEM-RL (10 features)',
+          about: 'Linear policy trained for Marathon score. About half of its lines are Tetrises (~830k points).' },
+        { id: 'cem_v4', label: '🧠 V4 CEM-RL (11 features)',
+          about: 'Adds a Tetris feature: ~70% of its lines are Tetrises, but the well can be in any column (~970k points).' },
+        { id: 'cem_v5', label: '🧠 V5 CEM-RL (13 features)',
+          about: 'Default. Keeps the well at the left or right wall and saves I pieces in hold: ~85% Tetrises (~1.12M points). Tops out a little more often than V4.' },
+    ];
+
+    function showEngineInHud(engine) {
+        const select = document.getElementById("bot-engine-select");
+        const about = document.getElementById("bot-engine-about");
+        const option = ENGINE_OPTIONS.find((o) => o.id === engine);
+        if (select) select.value = engine;
+        if (about && option) about.textContent = option.about;
+    }
+
     function createHud() {
         if (!isTopFrame && window.top && window.top !== window) return;
         if (document.getElementById("tetris-rl-hud")) return;
@@ -28,7 +50,7 @@
 
         hud.innerHTML = `
             <div id="hud-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.12); padding-bottom:6px; cursor:move;">
-                <span style="font-weight:bold; color:#38bdf8; font-size:14px; pointer-events:none;">🤖 Tetris RL (CEM-RL v__VERSION__)</span>
+                <span style="font-weight:bold; color:#38bdf8; font-size:14px; pointer-events:none;">🤖 Tetris RL <span style="font-weight:normal; color:#64748b; font-size:11px;">script v__VERSION__</span></span>
                 <span id="bot-status-tag" style="background:#065f46; color:#34d399; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600;">STANDBY</span>
             </div>
             <div style="font-size:12px; color:#94a3b8; line-height:1.6; pointer-events:none;">
@@ -47,9 +69,7 @@
             <div style="margin-top:10px; padding:7px 10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
                 <span style="font-size:11px; color:#94a3b8; font-weight:600;">RL Engine:</span>
                 <select id="bot-engine-select" style="background:#1e293b; color:#38bdf8; border:1px solid #334155; border-radius:6px; padding:3px 6px; font-size:11px; cursor:pointer;">
-                    <option value="cem" selected>🧠 CEM-RL (Policy Search - Superhuman)</option>
-                    <option value="dqn_v2">🤖 DQN Neural Net (v2 - 6 Features)</option>
-                    <option value="dqn_v1">🤖 DQN Neural Net (v1 - 4 Features)</option>
+                    ${ENGINE_OPTIONS.map((o) => `<option value="${o.id}">${o.label}</option>`).join('')}
                 </select>
             </div>
 
@@ -77,6 +97,8 @@
                 <input id="bot-speed-range" type="range" min="10" max="60" value="15" style="width:120px; cursor:pointer;">
                 <span id="bot-speed-label">15ms</span>
             </div>
+
+            <div id="bot-engine-about" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.12); font-size:10px; line-height:1.45; color:#94a3b8; max-width:280px; pointer-events:none;"></div>
         `;
 
         document.body.appendChild(hud);
@@ -123,10 +145,10 @@
 
         const engineSelect = document.getElementById("bot-engine-select");
         if (engineSelect) {
-            engineSelect.value = activeEngine;
+            showEngineInHud(activeEngine);
             engineSelect.addEventListener("change", (e) => {
-                activeEngine = e.target.value;
-                broadcastCommand('engine', activeEngine);
+                broadcastCommand('engine', e.target.value);
+                showEngineInHud(activeEngine);
             });
         }
 
