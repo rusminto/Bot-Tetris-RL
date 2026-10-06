@@ -64,8 +64,38 @@
     }
 
     // ==========================================
-    // 3. CEM-RL EVALUATION ENGINE (8 FEATURES)
+    // 3. CEM-RL EVALUATION ENGINE (8 OR 10 FEATURES)
     // ==========================================
+    // Base points of a clear / 100, indexed by lines cleared (feature 9 of 10-weight policies)
+    const CLEAR_POINTS = [0, 1, 3, 5, 8];
+
+    // Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
+    // above that column's top that are full except for it. Only a strictly lowest column can qualify.
+    // Same as Matrix.ready_lines in tetris_sim.py (feature 10).
+    function readyLines(board) {
+        const heights = new Array(10).fill(0);
+        for (let c = 0; c < 10; c++) {
+            for (let r = 0; r < 20; r++) {
+                if (board[r][c] > 0) {
+                    heights[c] = 20 - r;
+                    break;
+                }
+            }
+        }
+        const h = Math.min(...heights);
+        const col = heights.indexOf(h);
+        if (heights.lastIndexOf(h) !== col) return 0;
+        let n = 0;
+        while (n < 4 && h + n < 20) {
+            const row = board[19 - (h + n)];
+            for (let c = 0; c < 10; c++) {
+                if ((row[c] > 0) === (c === col)) return n;
+            }
+            n++;
+        }
+        return n;
+    }
+
     function extractCemFeatures(board, landingHeight, numCleared, pieceMinosCleared) {
         const eroded = numCleared * pieceMinosCleared;
 
@@ -154,7 +184,9 @@
             holes,
             cumulativeWells,
             holeDepth,
-            rowsWithHolesCount
+            rowsWithHolesCount,
+            CLEAR_POINTS[numCleared] || 0,
+            readyLines(board)
         ];
     }
 
@@ -264,7 +296,7 @@
 
     function evaluateCemBoard(feat) {
         let score = 0;
-        for (let k = 0; k < 8; k++) {
+        for (let k = 0; k < CEM_WEIGHTS.length; k++) {
             score += CEM_WEIGHTS[k] * feat[k];
         }
         return score;

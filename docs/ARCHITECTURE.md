@@ -114,7 +114,9 @@ A bitboard simulator that follows the same rules as the browser search, so the p
 - the matrix, spawn position and SRS kick tables above;
 - **20G reachability** from Level 20: the piece settles after spawning and after every action, so it can only slide along the stack or kick upward; below Level 20 any placement reachable at spawn height is allowed (the bot moves the piece before gravity acts);
 - hold once per piece, block out when the spawn cells are occupied, lock out when a piece locks entirely above the visible rows;
-- the same 8 features over the visible rows and the same penalty for minos left in the hidden rows as `extractCemFeatures`/`scorePlacement` in the userscript.
+- play.tetris.com's scoring (read from the game's score component): 100/300/500/800 × level for 1–4 lines, ×1.5 for a back-to-back Tetris, +50 × combo × level, perfect-clear bonuses, 2 points per hard-dropped row; T-spins are not modelled;
+- a Marathon mode (Level 1 → 300 lines);
+- the same policy inputs as the userscript: the CEM features and the DQN features over the visible rows, and the same penalty for minos left in the hidden rows (`userscript/tests/features_parity.js` checks them against each other on random boards).
 
 `test_tetris_sim.py` checks the features against the original numpy implementation and the spawn positions against the live engine.
 
@@ -126,8 +128,8 @@ The original simulator used for DQN. It has the correct gravity and lock delay t
 
 | Script | Purpose |
 | :--- | :--- |
-| `cem_train.py` | CEM policy search over the 8-feature linear policy (see [RL Algorithms](RL_ALGORITHMS.md)) |
-| `evaluate_cem.py` | Compare CEM weight files on the same simulated games |
+| `cem_train.py` | CEM policy search over the linear policy (see [RL Algorithms](RL_ALGORITHMS.md)) |
+| `evaluate_policies.py` | Compare CEM weight files and the DQN networks on the same simulated games (e.g. `--marathon`) |
 | `train.py`, `dqn_agent.py` | DQN v2 training (6 features), TensorBoard logs in `runs/` |
 | `evaluate.py`, `web_viewer.py` | Play a DQN checkpoint in the terminal or in a live browser view |
 | `export_weights.py` | Export a DQN checkpoint to the JSON the userscript embeds |
@@ -140,7 +142,7 @@ The original simulator used for DQN. It has the correct gravity and lock delay t
 
 | Placeholder | Source |
 | :--- | :--- |
-| `__CEM_WEIGHTS__` | `reinforcement-learning/cem_checkpoints/best_cem_weights.json` (normalized; falls back to the published Thiery & Scherrer weights) |
+| `__CEM_WEIGHTS__` | `reinforcement-learning/cem_checkpoints/best_cem_weights.json`, or `--cem-weights` (8 or 10 weights, normalized; falls back to the published Thiery & Scherrer weights) |
 | `__DQN_V2_WEIGHTS__` | `reinforcement-learning/weights_v2.json` |
 | `__DQN_V1_WEIGHTS__` | `reinforcement-learning/weights_v1.json` |
 

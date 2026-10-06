@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Syncs reinforcement-learning/ to a remote server and starts training there in tmux.
 #
-#   ./run_training_remote.sh          # CEM policy search (the policy the userscript ships)
-#   ./run_training_remote.sh dqn      # DQN v2
-#   ./run_training_remote.sh fetch    # copy checkpoints and logs back
+#   ./run_training_remote.sh                      # CEM policy search (the policy the userscript ships)
+#   ./run_training_remote.sh cem --generations 40  # extra arguments go to the training script
+#   ./run_training_remote.sh dqn                  # DQN v2
+#   ./run_training_remote.sh fetch                # copy checkpoints and logs back
 #
 # The server comes from ../.env (see ../.env.example) or the environment:
 #   TETRIS_RL_REMOTE=user@host  TETRIS_RL_REMOTE_PORT=22  TETRIS_RL_REMOTE_DIR=tetris-rl  TETRIS_RL_WORKERS=12
@@ -27,14 +28,16 @@ PORT="${TETRIS_RL_REMOTE_PORT:-22}"
 DIR="${TETRIS_RL_REMOTE_DIR:-tetris-rl}"   # relative to the remote home directory
 WORKERS="${TETRIS_RL_WORKERS:-12}"
 MODE="${1:-cem}"
+EXTRA="$(printf '%q ' "${@:2}")"
 SSH=(ssh -p "$PORT" "$REMOTE")
 
 case "$MODE" in
-  cem) SESSION="cem-train"; CMD="venv/bin/python3 -u src/cem_train.py --num-workers $WORKERS 2>&1 | tee logs/cem_train.log" ;;
-  dqn) SESSION="dqn-train"; CMD="venv/bin/python3 -u src/train.py --episodes 5000 2>&1 | tee logs/dqn_train.log" ;;
+  cem) SESSION="cem-train"; CMD="venv/bin/python3 -u src/cem_train.py --num-workers $WORKERS $EXTRA 2>&1 | tee logs/cem_train.log" ;;
+  dqn) SESSION="dqn-train"; CMD="venv/bin/python3 -u src/train.py --episodes 5000 $EXTRA 2>&1 | tee logs/dqn_train.log" ;;
   fetch)
-    for d in cem_checkpoints checkpoints logs; do
-      rsync -av -e "ssh -p $PORT" "$REMOTE:$DIR/$d/" "$LOCAL_DIR/$d/"
+    # --update: never replace a file that is newer here (e.g. weights you already promoted locally)
+    for d in $("${SSH[@]}" "cd $DIR && ls -d cem_checkpoints* checkpoints logs 2>/dev/null"); do
+      rsync -av --update -e "ssh -p $PORT" "$REMOTE:$DIR/$d/" "$LOCAL_DIR/$d/"
     done
     exit 0 ;;
   *) echo "usage: $0 [cem|dqn|fetch]" >&2; exit 1 ;;

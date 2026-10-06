@@ -148,7 +148,7 @@ class Matrix:
     def reachable_placements(self, rows, p, start, gravity_20g):
         """
         Distinct final placements reachable from `start` with left/right/SRS-rotate, then hard drop.
-        At 20G the piece settles after every action. Returns {cells_key: (rot, bx, final_by)}.
+        At 20G the piece settles after every action. Returns {cells: (rot, bx, final_by, hard_drop_rows)}.
         """
         rot, bx, by = start
         if gravity_20g:
@@ -181,7 +181,7 @@ class Matrix:
             fy = by if gravity_20g else self.drop(rows, p, rot, bx, by)
             cells = tuple(sorted((bx + c, fy - r) for r, c in SRS_CELLS[p][rot]))
             if cells not in out:
-                out[cells] = (rot, bx, fy)
+                out[cells] = (rot, bx, fy, by - fy)
         return out
 
     def lock(self, rows, cells):
@@ -259,37 +259,187 @@ class Matrix:
         return (landing_height, num_cleared * piece_minos_cleared, row_trans, col_trans,
                 holes, wells, hole_depth, rows_with_holes)
 
+    def column_heights(self, rows):
+        heights = [0] * WIDTH
+        covered = 0
+        for y in range(self.visible - 1, -1, -1):
+            new = rows[y] & ~covered
+            if new:
+                covered |= new
+                for c in range(WIDTH):
+                    if new >> c & 1:
+                        heights[c] = y + 1
+        return heights
+
+    def ready_lines(self, rows):
+        """
+        Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
+        above that column's top that are full except for it. Only a strictly lowest column can qualify.
+        """
+        heights = self.column_heights(rows)
+        h = min(heights)
+        if heights.count(h) != 1:
+            return 0
+        mask = FULL_ROW & ~(1 << heights.index(h))
+        n = 0
+        while n < 4 and h + n < self.visible and rows[h + n] == mask:
+            n += 1
+        return n
+
+    def dqn_features(self, rows):
+        """(holes, bumpiness, total height, max height) over the visible rows, as calculateDqnV*Features."""
+        heights = self.column_heights(rows)
+        holes = 0
+        covered = 0
+        for y in range(self.visible - 1, -1, -1):
+            holes += popcount(covered & ~rows[y] & FULL_ROW)
+            covered |= rows[y]
+        bumpiness = sum(abs(a - b) for a, b in zip(heights, heights[1:]))
+        return holes, bumpiness, sum(heights), max(heights)
+
 
 HIDDEN_ROW_PENALTY = 1000.0
 
+# ---------------------------------------------------------------------------
+# Scoring: play.tetris.com's rules, read from the game's score component
+# ---------------------------------------------------------------------------
+LINE_CLEAR_POINTS = (0, 100, 300, 500, 800)
+PERFECT_CLEAR_POINTS = (0, 800, 1200, 1800, 2000)
+B2B_TETRIS_PERFECT_CLEAR_POINTS = 3200
+COMBO_POINTS = 50
+HARD_DROP_POINTS_PER_ROW = 2
+MARATHON_LINES = 300
 
-def score_placement(matrix, rows, cells, weights):
-    """Policy value of locking `cells`, plus the resulting board. None for a lock out."""
-    vis = matrix.visible
-    if all(y >= vis for _, y in cells):
-        return None
-    nr, cleared, eroded = matrix.lock(rows, cells)
-    landing = sum(y + 1 for _, y in cells) / len(cells)
-    f = matrix.features(nr, landing, cleared, eroded)
-    value = sum(w * v for w, v in zip(weights, f))
-    for y in range(vis, matrix.height):
-        if nr[y]:
-            value -= HIDDEN_ROW_PENALTY  # minos left in the hidden rows: one step from topping out
-    return value, nr, cleared
+
+class Scorer:
+    """Score, combo and back-to-back state. T-spins are not modelled (the bot rarely makes them)."""
+
+    def __init__(self):
+        self.score = 0
+        self.combo = 0  # line-clearing pieces in a row before this one
+        self.back_to_back = False
+        self.clears = [0, 0, 0, 0, 0]  # count by lines cleared
+
+    def add(self, lines, level, hard_drop_rows=0, perfect_clear=False):
+        self.score += HARD_DROP_POINTS_PER_ROW * hard_drop_rows
+        if lines == 0:
+            self.combo = 0
+            return
+        self.clears[lines] += 1
+        tetris = lines == 4
+        b2b = self.back_to_back and tetris
+        points = LINE_CLEAR_POINTS[lines] * 3 // 2 if b2b else LINE_CLEAR_POINTS[lines]
+        self.back_to_back = tetris  # a single/double/triple breaks the chain
+        points += COMBO_POINTS * self.combo
+        self.combo += 1
+        if perfect_clear:
+            points += B2B_TETRIS_PERFECT_CLEAR_POINTS if b2b else PERFECT_CLEAR_POINTS[lines]
+        self.score += points * level
+
+
+# ---------------------------------------------------------------------------
+# Policies: score after-states, like the userscript's engines
+# ---------------------------------------------------------------------------
+class AfterState:
+    __slots__ = ("rows", "cleared", "eroded", "landing", "cells", "is_hold", "hard_drop_rows")
+
+    def __init__(self, rows, cleared, eroded, landing, cells, is_hold, hard_drop_rows):
+        self.rows = rows
+        self.cleared = cleared
+        self.eroded = eroded
+        self.landing = landing
+        self.cells = cells
+        self.is_hold = is_hold
+        self.hard_drop_rows = hard_drop_rows
+
+
+class LinearPolicy:
+    """
+    CEM policy: w . f over the 8 Thiery & Scherrer features, optionally followed by two Tetris
+    features: base points of the clear / 100 (0, 1, 3, 5, 8) and ready_lines.
+    """
+
+    def __init__(self, weights):
+        self.weights = [float(w) for w in weights]
+        if len(self.weights) not in (8, 10):
+            raise ValueError("expected 8 or 10 weights")
+
+    def values(self, matrix, afters, level):
+        w = self.weights
+        extended = len(w) == 10
+        out = []
+        for a in afters:
+            f = matrix.features(a.rows, a.landing, a.cleared, a.eroded)
+            v = sum(wi * fi for wi, fi in zip(w, f))
+            if extended:
+                v += w[8] * LINE_CLEAR_POINTS[a.cleared] / 100 + w[9] * matrix.ready_lines(a.rows)
+            out.append(v)
+        return out
+
+
+class MLPPolicy:
+    """DQN after-state value network exported by export_weights.py (version 1: 4 inputs, 2: 6 inputs)."""
+
+    def __init__(self, weights, version):
+        import numpy as np
+        self.np = np
+        self.version = version
+        self.layers = [(np.array(weights[f"net.{i}.weight"], dtype=np.float64),
+                        np.array(weights[f"net.{i}.bias"], dtype=np.float64)) for i in (0, 2, 4)]
+
+    def values(self, matrix, afters, level):
+        np = self.np
+        feats = []
+        for a in afters:
+            holes, bump, total, top = matrix.dqn_features(a.rows)
+            f = [a.cleared, holes, bump, total]
+            if self.version == 2:
+                f += [top, max(0, min(30, level) - 1) / 29.0]
+            feats.append(f)
+        x = np.array(feats, dtype=np.float64)
+        for i, (w, b) in enumerate(self.layers):
+            x = x @ w.T + b
+            if i < 2:
+                x = np.maximum(x, 0.0)
+        return x[:, 0].tolist()
+
+
+def as_policy(policy):
+    return LinearPolicy(policy) if isinstance(policy, (list, tuple)) else policy
 
 
 def level_for(start_level, lines):
     return start_level + lines // LINES_PER_LEVEL
 
 
-def play_game(weights, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_height=20, use_hold=True):
+class GameResult:
+    __slots__ = ("lines", "pieces", "topped_out", "score", "clears")
+
+    def __init__(self, lines, pieces, topped_out, score, clears):
+        self.lines = lines
+        self.pieces = pieces
+        self.topped_out = topped_out
+        self.score = score
+        self.clears = clears
+
+    def __repr__(self):
+        return (f"GameResult(lines={self.lines}, pieces={self.pieces}, topped_out={self.topped_out}, "
+                f"score={self.score}, clears={self.clears})")
+
+
+def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_height=20, use_hold=True,
+              max_lines=None):
     """
-    Play one game with a linear policy over the 8 features, like the browser bot does.
-    Returns (lines_cleared, pieces_placed, topped_out).
+    Play one game like the browser bot does: every reachable placement of the current piece and of the
+    piece hold would bring in is scored by `policy` (a LinearPolicy, MLPPolicy or a list of weights).
+    With max_lines=MARATHON_LINES and start_level=1 this is play.tetris.com's Marathon.
     """
+    policy = as_policy(policy)
     rng = random.Random(seed)
     matrix = Matrix(visible_height)
+    vis = matrix.visible
     rows = [0] * matrix.height
+    scorer = Scorer()
     bag = []
     queue = []
 
@@ -299,6 +449,9 @@ def play_game(weights, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_he
                 bag.extend(rng.sample(PIECE_NAMES, len(PIECE_NAMES)))
             queue.append(bag.pop())
 
+    def result(pieces, topped_out):
+        return GameResult(lines, pieces, topped_out, scorer.score, tuple(scorer.clears))
+
     refill()
     cur = queue.pop(0)
     hold = None
@@ -306,8 +459,9 @@ def play_game(weights, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_he
     for pieces in range(max_pieces):
         refill()
         if not matrix.fits(rows, cur, *matrix.spawn_state(cur)):
-            return lines, pieces, True  # block out
-        g20 = level_for(start_level, lines) >= FIRST_20G_LEVEL
+            return result(pieces, True)  # block out
+        level = level_for(start_level, lines)
+        g20 = level >= FIRST_20G_LEVEL
 
         # (piece to place, uses hold)
         options = [(cur, False)]
@@ -316,23 +470,36 @@ def play_game(weights, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_he
             if matrix.fits(rows, swap_in, *matrix.spawn_state(swap_in)):
                 options.append((swap_in, True))
 
-        best = None
+        afters = []
         for p, is_hold in options:
-            start = matrix.spawn_state(p)
-            for cells in matrix.reachable_placements(rows, p, start, g20):
-                res = score_placement(matrix, rows, cells, weights)
-                if res is not None and (best is None or res[0] > best[0]):
-                    best = (res[0], res[1], res[2], is_hold)
-        if best is None:
-            return lines, pieces, True  # only lock outs left
-        _, rows, cleared, is_hold = best
-        lines += cleared
+            for cells, (_, _, _, drop) in matrix.reachable_placements(rows, p, matrix.spawn_state(p), g20).items():
+                if all(y >= vis for _, y in cells):
+                    continue  # lock out
+                nr, cleared, eroded = matrix.lock(rows, cells)
+                landing = sum(y + 1 for _, y in cells) / len(cells)
+                afters.append(AfterState(nr, cleared, eroded, landing, cells, is_hold, drop))
+        if not afters:
+            return result(pieces, True)
 
-        if is_hold:
+        values = policy.values(matrix, afters, level)
+        best, best_value = None, None
+        for a, v in zip(afters, values):
+            if any(a.rows[y] for y in range(vis, matrix.height)):
+                v -= HIDDEN_ROW_PENALTY  # minos left in the hidden rows: one step from topping out
+            if best is None or v > best_value:
+                best, best_value = a, v
+
+        rows = best.rows
+        scorer.add(best.cleared, level, best.hard_drop_rows, perfect_clear=not any(rows))
+        lines += best.cleared
+
+        if best.is_hold:
             if hold is None:
                 hold = cur
                 queue.pop(0)  # the next piece was swapped in and placed
             else:
                 hold = cur
         cur = queue.pop(0)
-    return lines, max_pieces, False
+        if max_lines is not None and lines >= max_lines:
+            return result(pieces + 1, False)
+    return result(max_pieces, False)

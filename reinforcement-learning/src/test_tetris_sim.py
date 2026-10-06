@@ -2,11 +2,16 @@
 Sanity checks for tetris_sim.py. Run: python3 src/test_tetris_sim.py
 """
 
+import json
+import os
 import random
 
 import numpy as np
 
-from tetris_sim import Matrix, PIECE_NAMES, SRS_CELLS, play_game
+from tetris_sim import (FULL_ROW, MARATHON_LINES, Matrix, MLPPolicy, PIECE_NAMES, SRS_CELLS, Scorer,
+                        play_game)
+
+RL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
 
 def reference_features(board, landing_height, num_cleared, piece_minos_cleared):
@@ -119,8 +124,54 @@ def test_spawn_matches_engine():
 
 def test_games_run():
     weights = [-12.63, 6.60, -9.22, -19.77, -13.08, -10.49, -1.61, -24.04]
-    lines, pieces, topped = play_game(weights, seed=3, max_pieces=300)
-    assert pieces == 300 and not topped and lines > 100, (lines, pieces, topped)
+    r = play_game(weights, seed=3, max_pieces=300)
+    assert r.pieces == 300 and not r.topped_out and r.lines > 100, r
+
+
+def test_scoring_rules():
+    """play.tetris.com's rules: base x level, +50 x combo x level, back-to-back Tetris x1.5, 2/row hard drop."""
+    s = Scorer()
+    s.add(1, level=1)                 # single, starts a combo: 100
+    s.add(2, level=1)                 # double + combo 1: 300 + 50
+    assert s.score == 450
+    s.add(0, level=1, hard_drop_rows=10)  # no clear: combo ends, 20 hard-drop points
+    assert s.score == 470 and s.combo == 0
+    s.add(4, level=2)                 # Tetris: 1600
+    s.add(4, level=2)                 # back-to-back Tetris + combo 1: (1200 + 50) x 2
+    assert s.score == 470 + 1600 + 2500
+    s.add(0, level=2)
+    s.add(1, level=2)                 # a single breaks the back-to-back chain
+    s.add(0, level=2)
+    s.add(4, level=2)
+    assert s.score == 470 + 1600 + 2500 + 200 + 1600 and s.clears == [0, 2, 1, 0, 3]
+    s2 = Scorer()
+    s2.add(4, level=3, perfect_clear=True)  # Tetris perfect clear: (800 + 2000) x 3
+    assert s2.score == 8400
+
+
+def test_ready_lines():
+    m = Matrix()
+    rows = [0] * m.height
+    for y in range(3):
+        rows[y] = FULL_ROW & ~(1 << 9)  # three rows full except the right column
+    assert m.ready_lines(rows) == 3
+    rows[3] = FULL_ROW & ~(1 << 9)
+    rows[4] = FULL_ROW & ~(1 << 9)
+    assert m.ready_lines(rows) == 4      # capped at 4
+    rows[1] |= 1 << 9                    # covered: the I would land on row 1's cell
+    assert m.ready_lines(rows) == 3
+    rows2 = [0] * m.height
+    rows2[0] = FULL_ROW & ~(1 << 0) & ~(1 << 9)  # two empty columns: nothing is ready
+    assert m.ready_lines(rows2) == 0
+
+
+def test_marathon_and_dqn_policy():
+    weights = [-12.63, 6.60, -9.22, -19.77, -13.08, -10.49, -1.61, -24.04]
+    r = play_game(weights, seed=5, max_pieces=2000, start_level=1, max_lines=MARATHON_LINES)
+    assert not r.topped_out and r.lines >= 300 and r.score > 100000, r
+    dqn = MLPPolicy(json.load(open(os.path.join(RL_DIR, "weights_v1.json"))), version=1)
+    r = play_game(dqn, seed=5, max_pieces=60, start_level=1)
+    assert r.pieces == 60 and r.lines > 0, r
 
 
 if __name__ == "__main__":

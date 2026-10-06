@@ -202,11 +202,11 @@ On **play.tetris.com** the shipped build completed the Marathon: **Level 30, 304
 
 Headless Firefox on the offline copy of the game (`userscript/tests/e2e.js`):
 
-| Run | Original executor, v1 weights | Placement search, v1 weights | **Placement search, v2 weights (shipped)** |
+| Run | Original executor, v1 weights | Placement search, v1 weights | **Placement search, v2 weights** |
 | :--- | :--- | :--- | :--- |
 | Fall speed forced to 0 ms and lock delay to 150 ms from the first piece | topped out after 15 s, 13 lines | 154 lines in 90 s, still playing (run stopped) | **completed the Marathon: 300 lines, 588,050 points, stack never above 5 rows** |
 | Normal game from Level 1 | dies at Level 20–22 | completed the Marathon: 300 lines, 659,316 points | **completed the Marathon: 302 lines, 614,228 points** |
 
 The Marathon ends at Level 30 / 300 lines; every placement-search run that played to the end finished it with the stack at most 3 rows high, and all runs logged **0 mismatches** between the SRS model and the engine. (Score differences come from how often a policy goes for multi-line clears; none of them optimize score.)
 
-The v2 weights come from retraining CEM in a simulator with the same 20G rules; see [RL Algorithms](RL_ALGORITHMS.md#d-training-environment).
+The v2 weights come from retraining CEM in a simulator with the same 20G rules. They have since been replaced as the default by v3, trained for Marathon score (about 826k points on average instead of ~606k); see [RL Algorithms](RL_ALGORITHMS.md#d-objectives-and-training-settings).
