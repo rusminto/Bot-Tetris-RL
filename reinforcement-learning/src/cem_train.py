@@ -8,9 +8,10 @@ reachability from Level 20, hold once per piece, guideline top out, the game's s
 
 Two objectives:
 - score (default): play.tetris.com's Marathon (Level 1 -> 300 lines, hold on, 20 rows) and maximize the
-  final score, with a large penalty for topping out. Uses 10 features: the 8 Thiery & Scherrer ones plus
-  the base points of the clear and how many lines a vertical I would clear (so the policy can plan
-  Tetrises).
+  final score, with a large penalty for topping out. Uses 13 features: the 8 Thiery & Scherrer ones plus
+  the base points of the clear, how many lines a vertical I would clear (so the policy can plan
+  Tetrises), whether the placement clears a Tetris, how far the Tetris well is from the wall and
+  whether an I is in hold.
 - lines (the v2 policy): survival only. The Marathon is too easy to tell survival policies apart, so it
   trains at 20G from the first piece on a 10-row board without hold and counts lines cleared.
 """
@@ -36,6 +37,9 @@ FEATURE_NAMES = [
     "rows_with_holes",
     "clear_points",   # base points of the clear / 100: 0, 1, 3, 5, 8
     "ready_lines",    # lines a vertical I would clear in the lowest column (0-4)
+    "tetris",         # 8 if the placement clears a Tetris, else 0
+    "well_distance",  # columns between the lowest column and the nearest wall (0-4)
+    "hold_i",         # 1 if an I is in hold after the move
 ]
 
 # Thiery & Scherrer (2009) BCTS weights, first 8 features (used as a validation baseline)
@@ -43,15 +47,19 @@ BCTS_WEIGHTS = [-12.63, 6.60, -9.22, -19.77, -13.08, -10.49, -1.61, -24.04]
 # Hand-set starting point (the lines objective starts here): landing_height(-), eroded(+), row_trans(-),
 # col_trans(-), holes(-), wells(-), hole_depth(-), rows_with_holes(-)
 LINES_INIT = [-5.0, 5.0, -5.0, -10.0, -10.0, -5.0, -2.0, -15.0]
-# The score objective warm-starts from the v2 survival weights plus small positive weights on the two Tetris
-# features; starting from the hand-set signs instead only reached ~726k points instead of ~836k
-SCORE_INIT = [-0.249, 0.312, -0.292, -0.250, -0.466, -0.210, -0.110, -0.648, 0.3, 0.3]
+# The score objective fine-tunes v4's weights plus -0.8 on well_distance and +0.5 on hold_i, which already scored
+# 1,067k against v4's 955k (256 simulated Marathons), with little exploration noise: a run with the lines
+# objective's noise (sigma 0.5) moved away from this point and ended lower, with more top-outs. v4 started from the
+# v3 weights with ready_lines raised to 0.5 and the Tetris feature at 0.5; v3 from the v2 survival weights plus
+# 0.3 on clear_points and ready_lines (starting from the hand-set signs instead only reached ~726k, not ~836k)
+SCORE_INIT = [-0.411317, -0.169688, -0.135946, -0.276358, -0.330187, -0.017002, -0.042016, -0.341748, -0.281481,
+              0.233329, 0.587898, -0.8, 0.5]
 
 PRESETS = {
-    "score": dict(features=10, start_level=1, board_height=20, hold=True, max_lines=MARATHON_LINES, max_pieces=1500,
-                  generations=40, init_weights=SCORE_INIT),
+    "score": dict(features=13, start_level=1, board_height=20, hold=True, max_lines=MARATHON_LINES, max_pieces=1500,
+                  generations=20, games_per_eval=24, initial_sigma=0.05, noise_factor=0.02, init_weights=SCORE_INIT),
     "lines": dict(features=8, start_level=20, board_height=10, hold=False, max_lines=None, max_pieces=3000,
-                  generations=30, init_weights=LINES_INIT),
+                  generations=30, games_per_eval=12, initial_sigma=0.5, noise_factor=0.2, init_weights=LINES_INIT),
 }
 
 
@@ -199,9 +207,9 @@ def save_checkpoint(output_dir, filename, names, gen, score, mu, sigma, weights,
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cross-Entropy Method RL for Tetris")
     parser.add_argument("--objective", choices=sorted(PRESETS), default="score",
-                        help="score: Marathon score (10 features); lines: survival at 20G on a short board (8 features). "
-                             "Sets the defaults of the environment options below.")
-    parser.add_argument("--features", type=int, choices=(8, 10), help="Number of features")
+                        help="score: Marathon score (13 features); lines: survival at 20G on a short board (8 features). "
+                             "Sets the defaults of the environment and search options below.")
+    parser.add_argument("--features", type=int, choices=(8, 10, 11, 13), help="Number of features")
     parser.add_argument("--start-level", type=int, help="Starting level (20+ means 20G gravity)")
     parser.add_argument("--board-height", type=int, help="Visible rows (real game: 20)")
     parser.add_argument("--hold", action=argparse.BooleanOptionalAction, default=None, help="Allow hold")
@@ -211,12 +219,12 @@ if __name__ == "__main__":
     parser.add_argument("--init-weights", type=str, help="Comma-separated starting mean (default: per objective)")
     parser.add_argument("--population-size", type=int, default=32, help="Number of candidate policies per generation")
     parser.add_argument("--elite-size", type=int, default=6, help="Number of elite candidates to select")
-    parser.add_argument("--generations", type=int, help="Number of CEM generations (score: 40, lines: 30)")
-    parser.add_argument("--games-per-eval", type=int, default=12, help="Number of games to average per candidate")
+    parser.add_argument("--generations", type=int, help="Number of CEM generations (score: 20, lines: 30)")
+    parser.add_argument("--games-per-eval", type=int, help="Number of games to average per candidate (score: 24, lines: 12)")
     parser.add_argument("--validation-games", type=int, default=24, help="Held-out games for the final comparison")
     parser.add_argument("--alpha", type=float, default=0.2, help="Smoothing parameter for distribution update")
-    parser.add_argument("--initial-sigma", type=float, default=0.5, help="Initial standard deviation")
-    parser.add_argument("--noise-factor", type=float, default=0.2, help="Exploration noise factor")
+    parser.add_argument("--initial-sigma", type=float, help="Initial standard deviation (score: 0.05, lines: 0.5)")
+    parser.add_argument("--noise-factor", type=float, help="Exploration noise factor (score: 0.02, lines: 0.2)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed for sampling and game seeds")
     parser.add_argument("--num-workers", type=int, default=None, help="Number of parallel worker processes")
     parser.add_argument("--output-dir", type=str,

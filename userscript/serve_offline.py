@@ -20,6 +20,8 @@ BOT_URL = "/tetris_bot.user.js"
 # The bot has to run after SystemJS loads (it hooks System.register) and before the game imports
 # its modules, which is right after the import map in game.html
 ANCHOR = '<script src="src/import-map.json" type="systemjs-importmap" charset="utf-8"></script>'
+# Like a userscript manager, also run it in the top page (index.html), which shows the HUD around the game iframe
+TOP_ANCHOR = '</head>'
 
 
 class GameHandler(SimpleHTTPRequestHandler):
@@ -30,12 +32,17 @@ class GameHandler(SimpleHTTPRequestHandler):
         if self.inject_bot and path == BOT_URL:
             return self._send(BOT_FILE.read_bytes(), "application/javascript")
         if self.inject_bot and path.endswith("/game.html"):
-            page = Path(self.translate_path(path))
-            if page.is_file():
-                html = page.read_text(encoding="utf-8")
-                html = html.replace(ANCHOR, f'{ANCHOR}\n\t\t<script src="{BOT_URL}"></script>', 1)
-                return self._send(html.encode("utf-8"), "text/html; charset=utf-8")
+            return self._inject(path, ANCHOR, f'{ANCHOR}\n\t\t<script src="{BOT_URL}"></script>')
+        if self.inject_bot and path in ("/", "/index.html"):
+            return self._inject("/index.html", TOP_ANCHOR, f'  <script src="{BOT_URL}"></script>\n{TOP_ANCHOR}')
         return super().do_GET()
+
+    def _inject(self, path, anchor, replacement):
+        page = Path(self.translate_path(path))
+        if not page.is_file():
+            return super().do_GET()
+        html = page.read_text(encoding="utf-8").replace(anchor, replacement, 1)
+        return self._send(html.encode("utf-8"), "text/html; charset=utf-8")
 
     def _send(self, body, content_type):
         self.send_response(200)

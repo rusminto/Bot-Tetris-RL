@@ -10,6 +10,9 @@ Mirrors the placement search in userscript/src/placement_search.js:
   at spawn height is legal
 - Hold once per piece, block out when the spawn position is occupied, lock out when a piece locks
   entirely above the visible rows
+- T-spins as the engine detects them (getTSpinTypeForLivePieceCurrentTransform): the last action was a
+  rotation the piece didn't fall after (a hard drop keeps it), and 3 of the 4 corners around the T's
+  center are filled
 
 Boards are lists of row bitmasks (bit x = column x) for speed.
 """
@@ -77,6 +80,10 @@ KICKS_I = {
 
 BX_OFFSET = 4  # box left column ranges over [-BX_OFFSET, WIDTH)
 
+# T-spin types, as the engine's score component tells them apart
+TSPIN_NONE, TSPIN_MINI, TSPIN_FULL = 0, 1, 2
+NO_TSPIN = frozenset((TSPIN_NONE,))
+
 
 def _build_row_masks():
     """MASKS[p][rot][bx + BX_OFFSET] = [(r, rowmask), ...] or None if a cell leaves the walls."""
@@ -133,13 +140,14 @@ class Matrix:
         return by
 
     def rotate(self, rows, p, rot, bx, by, d):
+        """(rot, bx, by, kick) after an SRS rotation, kick = the kick test used (1-5); None if none fits."""
         to = (rot + d) % 4
         if p == "O":
-            return (to, bx, by)
+            return (to, bx, by, 1)
         table = KICKS_I if p == "I" else KICKS_JLSTZ
-        for dx, dy in table[(rot, to)]:
+        for kick, (dx, dy) in enumerate(table[(rot, to)], 1):
             if self.fits(rows, p, to, bx + dx, by + dy):
-                return (to, bx + dx, by + dy)
+                return (to, bx + dx, by + dy, kick)
         return None
 
     def spawn_state(self, p):
@@ -148,8 +156,11 @@ class Matrix:
     def reachable_placements(self, rows, p, start, gravity_20g):
         """
         Distinct final placements reachable from `start` with left/right/SRS-rotate, then hard drop.
-        At 20G the piece settles after every action. Returns {cells: (rot, bx, final_by, hard_drop_rows)}.
+        At 20G the piece settles after every action. Returns {cells: (rot, bx, final_by, hard_drop_rows, tspins)},
+        where tspins is the set of T-spin types the placement can be reached with ({TSPIN_NONE} for other pieces).
         """
+        if p == "T":
+            return self._reachable_t(rows, start, gravity_20g)
         rot, bx, by = start
         if gravity_20g:
             by = self.drop(rows, p, rot, bx, by)
@@ -169,7 +180,7 @@ class Matrix:
                 for d in (1, -1):
                     t = self.rotate(rows, p, rot, bx, by, d)
                     if t is not None:
-                        nexts.append(t)
+                        nexts.append(t[:3])
             for s in nexts:
                 if gravity_20g:
                     s = (s[0], s[1], self.drop(rows, p, s[0], s[1], s[2]))
@@ -181,8 +192,84 @@ class Matrix:
             fy = by if gravity_20g else self.drop(rows, p, rot, bx, by)
             cells = tuple(sorted((bx + c, fy - r) for r, c in SRS_CELLS[p][rot]))
             if cells not in out:
-                out[cells] = (rot, bx, fy, by - fy)
+                out[cells] = (rot, bx, fy, by - fy, NO_TSPIN)
         return out
+
+    def _reachable_t(self, rows, start, gravity_20g):
+        """
+        reachable_placements for the T, searching (rot, bx, by, point) states. point is the engine's
+        mEndingRotationPointForPiece: the kick test of the last rotation, reset to 0 by a move or a fall
+        (not by a hard drop); a no-kick rotation right after a kick-5 rotation keeps 5.
+        """
+        rot, bx, by = start
+        if gravity_20g:
+            by = self.drop(rows, "T", rot, bx, by)
+        s0 = (rot, bx, by, 0)
+        seen = {s0}
+        queue = [s0]
+        i = 0
+        while i < len(queue):
+            rot, bx, by, point = queue[i]
+            i += 1
+            nexts = []
+            for dx in (-1, 1):
+                if self.fits(rows, "T", rot, bx + dx, by):
+                    nexts.append((rot, bx + dx, self.drop(rows, "T", rot, bx + dx, by) if gravity_20g else by, 0))
+            for d in (1, -1):
+                t = self.rotate(rows, "T", rot, bx, by, d)
+                if t is None:
+                    continue
+                to, nx, ny, kick = t
+                np_ = 5 if point == 5 and kick == 1 else kick
+                if gravity_20g:
+                    fy = self.drop(rows, "T", to, nx, ny)
+                    if fy != ny:
+                        ny, np_ = fy, 0
+                nexts.append((to, nx, ny, np_))
+            for s in nexts:
+                if s not in seen:
+                    seen.add(s)
+                    queue.append(s)
+        out = {}
+        for rot, bx, by, point in queue:
+            fy = by if gravity_20g else self.drop(rows, "T", rot, bx, by)
+            cells = tuple(sorted((bx + c, fy - r) for r, c in SRS_CELLS["T"][rot]))
+            t = self.tspin_type(rows, rot, bx, fy, point)
+            entry = out.get(cells)
+            if entry is None:
+                out[cells] = (rot, bx, fy, by - fy, frozenset((t,)))
+            elif t not in entry[4]:
+                out[cells] = entry[:4] + (entry[4] | {t},)
+        return out
+
+    def tspin_type(self, rows, rot, bx, by, point):
+        """
+        The engine's T-spin rule for a T locking at (rot, bx, by) with rotation point `point`. Corners
+        around the center: both front corners (the side the T points to) and a back one is a T-spin; both
+        back corners and a front one is a mini (a T-spin if the last rotation used kick 5, nothing if
+        kick 4). Against the floor or a wall only a mini is possible.
+        """
+        if point == 0:
+            return TSPIN_NONE
+        x, y = bx + 1, by - 1
+        filled = lambda cx, cy: cy < self.height and rows[cy] >> cx & 1
+        if y == 0:
+            mini = rot == 0 and (filled(x + 1, y + 1) or filled(x - 1, y + 1))
+        elif x == 0:
+            mini = rot == 1 and (filled(x + 1, y + 1) or filled(x + 1, y - 1))
+        elif x == WIDTH - 1:
+            mini = rot == 3 and (filled(x - 1, y + 1) or filled(x - 1, y - 1))
+        else:
+            tl, tr = filled(x - 1, y + 1), filled(x + 1, y + 1)
+            bl, br = filled(x - 1, y - 1), filled(x + 1, y - 1)
+            # (front corners, back corners) for up, right, down, left
+            front, back = (((tl, tr), (bl, br)), ((tr, br), (tl, bl)), ((bl, br), (tl, tr)), ((tl, bl), (tr, br)))[rot]
+            if front[0] and front[1] and (back[0] or back[1]):
+                return TSPIN_FULL
+            mini = back[0] and back[1] and (front[0] or front[1])
+        if not mini or point == 4:
+            return TSPIN_NONE
+        return TSPIN_FULL if point == 5 else TSPIN_MINI
 
     def lock(self, rows, cells):
         """Returns (new_rows, lines_cleared, piece_minos_cleared)."""
@@ -271,12 +358,12 @@ class Matrix:
                         heights[c] = y + 1
         return heights
 
-    def ready_lines(self, rows):
+    def ready_lines(self, rows, heights=None):
         """
         Lines a vertical I piece would clear in the lowest column right now (0-4): the rows directly
         above that column's top that are full except for it. Only a strictly lowest column can qualify.
         """
-        heights = self.column_heights(rows)
+        heights = heights or self.column_heights(rows)
         h = min(heights)
         if heights.count(h) != 1:
             return 0
@@ -285,6 +372,12 @@ class Matrix:
         while n < 4 and h + n < self.visible and rows[h + n] == mask:
             n += 1
         return n
+
+    @staticmethod
+    def well_distance(heights):
+        """Columns between the lowest column and the nearest wall (0-4; the closest one if several are lowest)."""
+        h = min(heights)
+        return min(min(c, WIDTH - 1 - c) for c in range(WIDTH) if heights[c] == h)
 
     def dqn_features(self, rows):
         """(holes, bumpiness, total height, max height) over the visible rows, as calculateDqnV*Features."""
@@ -304,6 +397,8 @@ HIDDEN_ROW_PENALTY = 1000.0
 # Scoring: play.tetris.com's rules, read from the game's score component
 # ---------------------------------------------------------------------------
 LINE_CLEAR_POINTS = (0, 100, 300, 500, 800)
+# Base points by T-spin type and lines; a mini with 2+ lines scores nothing
+TSPIN_CLEAR_POINTS = {TSPIN_MINI: (100, 200, 0, 0), TSPIN_FULL: (400, 800, 1200, 1600)}
 PERFECT_CLEAR_POINTS = (0, 800, 1200, 1800, 2000)
 B2B_TETRIS_PERFECT_CLEAR_POINTS = 3200
 COMBO_POINTS = 50
@@ -311,29 +406,60 @@ HARD_DROP_POINTS_PER_ROW = 2
 MARATHON_LINES = 300
 
 
+def clear_points(lines, tspin=0):
+    """Base points of a clear (before back-to-back, combo and level)."""
+    return TSPIN_CLEAR_POINTS[tspin][lines] if tspin else LINE_CLEAR_POINTS[lines]
+
+
+def is_difficult(lines, tspin=0):
+    """Clears that continue (and get x1.5 from) a back-to-back chain: Tetrises, T-spins and mini singles."""
+    if tspin == TSPIN_FULL:
+        return lines > 0
+    if tspin == TSPIN_MINI:
+        return lines == 1
+    return lines == 4
+
+
+def best_tspin(tspins, lines):
+    """The T-spin type to reach a placement with, given the types it can be reached with."""
+    if TSPIN_FULL in tspins:
+        return TSPIN_FULL
+    if TSPIN_MINI in tspins and (lines <= 1 or TSPIN_NONE not in tspins):
+        return TSPIN_MINI
+    return TSPIN_NONE
+
+
 class Scorer:
-    """Score, combo and back-to-back state. T-spins are not modelled (the bot rarely makes them)."""
+    """Score, combo and back-to-back state."""
 
     def __init__(self):
         self.score = 0
         self.combo = 0  # line-clearing pieces in a row before this one
         self.back_to_back = False
         self.clears = [0, 0, 0, 0, 0]  # count by lines cleared
+        self.tspins = {TSPIN_MINI: [0] * 4, TSPIN_FULL: [0] * 4}  # count by type and lines
 
-    def add(self, lines, level, hard_drop_rows=0, perfect_clear=False):
+    def add(self, lines, level, hard_drop_rows=0, perfect_clear=False, tspin=TSPIN_NONE):
         self.score += HARD_DROP_POINTS_PER_ROW * hard_drop_rows
+        if tspin:
+            self.tspins[tspin][lines] += 1
+        points = clear_points(lines, tspin)
+        difficult = is_difficult(lines, tspin)
+        b2b = self.back_to_back and difficult
+        if b2b:
+            points = points * 3 // 2
+        if difficult:
+            self.back_to_back = True
+        elif lines and tspin == TSPIN_NONE:
+            self.back_to_back = False  # a single/double/triple breaks the chain; a mini double doesn't
         if lines == 0:
             self.combo = 0
-            return
-        self.clears[lines] += 1
-        tetris = lines == 4
-        b2b = self.back_to_back and tetris
-        points = LINE_CLEAR_POINTS[lines] * 3 // 2 if b2b else LINE_CLEAR_POINTS[lines]
-        self.back_to_back = tetris  # a single/double/triple breaks the chain
-        points += COMBO_POINTS * self.combo
-        self.combo += 1
-        if perfect_clear:
-            points += B2B_TETRIS_PERFECT_CLEAR_POINTS if b2b else PERFECT_CLEAR_POINTS[lines]
+        else:
+            self.clears[lines] += 1
+            points += COMBO_POINTS * self.combo
+            self.combo += 1
+            if perfect_clear:
+                points += B2B_TETRIS_PERFECT_CLEAR_POINTS if b2b and lines == 4 else PERFECT_CLEAR_POINTS[lines]
         self.score += points * level
 
 
@@ -341,9 +467,9 @@ class Scorer:
 # Policies: score after-states, like the userscript's engines
 # ---------------------------------------------------------------------------
 class AfterState:
-    __slots__ = ("rows", "cleared", "eroded", "landing", "cells", "is_hold", "hard_drop_rows")
+    __slots__ = ("rows", "cleared", "eroded", "landing", "cells", "is_hold", "hard_drop_rows", "tspin", "hold_after")
 
-    def __init__(self, rows, cleared, eroded, landing, cells, is_hold, hard_drop_rows):
+    def __init__(self, rows, cleared, eroded, landing, cells, is_hold, hard_drop_rows, tspin=0, hold_after=None):
         self.rows = rows
         self.cleared = cleared
         self.eroded = eroded
@@ -351,28 +477,48 @@ class AfterState:
         self.cells = cells
         self.is_hold = is_hold
         self.hard_drop_rows = hard_drop_rows
+        self.tspin = tspin
+        self.hold_after = hold_after  # the piece in hold after this move
+
+
+# Value of the Tetris feature for a placement that clears 4 lines (a Tetris's base points / 100)
+TETRIS_FEATURE = LINE_CLEAR_POINTS[4] // 100
+
+
+def cem_features(matrix, rows, landing_height, num_cleared, piece_minos_cleared, hold_after=None):
+    """All 13 CEM features of an after-state, as extractCemFeatures in the userscript returns them."""
+    heights = matrix.column_heights(rows)
+    return matrix.features(rows, landing_height, num_cleared, piece_minos_cleared) + (
+        LINE_CLEAR_POINTS[num_cleared] / 100, matrix.ready_lines(rows, heights), TETRIS_FEATURE if num_cleared == 4 else 0,
+        matrix.well_distance(heights), 1 if hold_after == "I" else 0)
 
 
 class LinearPolicy:
     """
-    CEM policy: w . f over the 8 Thiery & Scherrer features, optionally followed by two Tetris
-    features: base points of the clear / 100 (0, 1, 3, 5, 8) and ready_lines.
+    CEM policy: w . f over the first 8, 10, 11 or 13 of cem_features(): the 8 Thiery & Scherrer features,
+    the base points of the clear / 100 (0, 1, 3, 5, 8), ready_lines, 8 if the placement clears a Tetris,
+    well_distance, and 1 if an I is in hold after the move.
     """
 
     def __init__(self, weights):
         self.weights = [float(w) for w in weights]
-        if len(self.weights) not in (8, 10):
-            raise ValueError("expected 8 or 10 weights")
+        if len(self.weights) not in (8, 10, 11, 13):
+            raise ValueError("expected 8, 10, 11 or 13 weights")
 
     def values(self, matrix, afters, level):
         w = self.weights
-        extended = len(w) == 10
+        n = len(w)
         out = []
         for a in afters:
             f = matrix.features(a.rows, a.landing, a.cleared, a.eroded)
             v = sum(wi * fi for wi, fi in zip(w, f))
-            if extended:
-                v += w[8] * LINE_CLEAR_POINTS[a.cleared] / 100 + w[9] * matrix.ready_lines(a.rows)
+            if n > 8:
+                heights = matrix.column_heights(a.rows) if n == 13 else None
+                v += w[8] * LINE_CLEAR_POINTS[a.cleared] / 100 + w[9] * matrix.ready_lines(a.rows, heights)
+                if n >= 11 and a.cleared == 4:
+                    v += w[10] * TETRIS_FEATURE
+                if n == 13:
+                    v += w[11] * matrix.well_distance(heights) + w[12] * (a.hold_after == "I")
             out.append(v)
         return out
 
@@ -413,18 +559,19 @@ def level_for(start_level, lines):
 
 
 class GameResult:
-    __slots__ = ("lines", "pieces", "topped_out", "score", "clears")
+    __slots__ = ("lines", "pieces", "topped_out", "score", "clears", "tspins")
 
-    def __init__(self, lines, pieces, topped_out, score, clears):
+    def __init__(self, lines, pieces, topped_out, score, clears, tspins):
         self.lines = lines
         self.pieces = pieces
         self.topped_out = topped_out
         self.score = score
         self.clears = clears
+        self.tspins = tspins  # (minis by lines, T-spins by lines)
 
     def __repr__(self):
         return (f"GameResult(lines={self.lines}, pieces={self.pieces}, topped_out={self.topped_out}, "
-                f"score={self.score}, clears={self.clears})")
+                f"score={self.score}, clears={self.clears}, tspins={self.tspins})")
 
 
 def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_height=20, use_hold=True,
@@ -450,7 +597,8 @@ def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_hei
             queue.append(bag.pop())
 
     def result(pieces, topped_out):
-        return GameResult(lines, pieces, topped_out, scorer.score, tuple(scorer.clears))
+        return GameResult(lines, pieces, topped_out, scorer.score, tuple(scorer.clears),
+                          (tuple(scorer.tspins[TSPIN_MINI]), tuple(scorer.tspins[TSPIN_FULL])))
 
     refill()
     cur = queue.pop(0)
@@ -472,12 +620,13 @@ def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_hei
 
         afters = []
         for p, is_hold in options:
-            for cells, (_, _, _, drop) in matrix.reachable_placements(rows, p, matrix.spawn_state(p), g20).items():
+            for cells, (_, _, _, drop, tspins) in matrix.reachable_placements(rows, p, matrix.spawn_state(p), g20).items():
                 if all(y >= vis for _, y in cells):
                     continue  # lock out
                 nr, cleared, eroded = matrix.lock(rows, cells)
                 landing = sum(y + 1 for _, y in cells) / len(cells)
-                afters.append(AfterState(nr, cleared, eroded, landing, cells, is_hold, drop))
+                afters.append(AfterState(nr, cleared, eroded, landing, cells, is_hold, drop, best_tspin(tspins, cleared),
+                                         cur if is_hold else hold))
         if not afters:
             return result(pieces, True)
 
@@ -490,7 +639,7 @@ def play_game(policy, seed, max_pieces, start_level=FIRST_20G_LEVEL, visible_hei
                 best, best_value = a, v
 
         rows = best.rows
-        scorer.add(best.cleared, level, best.hard_drop_rows, perfect_clear=not any(rows))
+        scorer.add(best.cleared, level, best.hard_drop_rows, perfect_clear=not any(rows), tspin=best.tspin)
         lines += best.cleared
 
         if best.is_hold:

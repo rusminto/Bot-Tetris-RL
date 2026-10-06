@@ -22,7 +22,7 @@ flowchart TD
     subgraph GAME["Browser: play.tetris.com or the offline copy"]
         HOOK["SystemJS hook -> Player / Model objects"]
         SEARCH["Reachable placement search\n(same rules as tetris_sim.py)"]
-        POLICY["Policy: CEM (default), DQN v2, DQN v1"]
+        POLICY["Policy: V5 CEM-RL (default), V4/V3 CEM-RL, V2/V1 DQN"]
         EXEC["Execute actions, verify each step, hard drop"]
         HUD["HUD in the top window"]
         HOOK --> SEARCH --> POLICY --> EXEC
@@ -101,7 +101,7 @@ With Direct Snapping off, a 20 ms polling loop (`bot_loop.js`) plans with the st
 
 ### HUD and frames
 
-play.tetris.com runs the game in an iframe. The script runs in every frame (`@allFrames`); the iframe instance plays and posts telemetry to the top window with `postMessage`, and the top window hosts the HUD (`hud.js`) and sends commands back (pause, engine, start, Direct Snapping, key delay).
+play.tetris.com runs the game in an iframe. The script runs in every frame (`@allFrames`); the iframe instance plays and posts telemetry to the top window with `postMessage`, and the top window hosts the HUD (`hud.js`) and sends commands back (pause, engine, start, Direct Snapping, key delay). In the game iframe's console, `window.__tetrisBotStats.engine` shows which engine placed the last piece.
 
 ---
 
@@ -114,7 +114,8 @@ A bitboard simulator that follows the same rules as the browser search, so the p
 - the matrix, spawn position and SRS kick tables above;
 - **20G reachability** from Level 20: the piece settles after spawning and after every action, so it can only slide along the stack or kick upward; below Level 20 any placement reachable at spawn height is allowed (the bot moves the piece before gravity acts);
 - hold once per piece, block out when the spawn cells are occupied, lock out when a piece locks entirely above the visible rows;
-- play.tetris.com's scoring (read from the game's score component): 100/300/500/800 × level for 1–4 lines, ×1.5 for a back-to-back Tetris, +50 × combo × level, perfect-clear bonuses, 2 points per hard-dropped row; T-spins are not modelled;
+- play.tetris.com's scoring (read from the game's score component): 100/300/500/800 × level for 1–4 lines, T-spins and minis, ×1.5 for back-to-back, +50 × combo × level, perfect-clear bonuses, 2 points per hard-dropped row;
+- T-spins as the engine detects them: the last action was a rotation the piece didn't fall after (a hard drop keeps it), and 3 of the 4 corners around the T's center are filled (both front corners for a T-spin, both back corners for a mini);
 - a Marathon mode (Level 1 → 300 lines);
 - the same policy inputs as the userscript: the CEM features and the DQN features over the visible rows, and the same penalty for minos left in the hidden rows (`userscript/tests/features_parity.js` checks them against each other on random boards).
 
@@ -142,8 +143,8 @@ The original simulator used for DQN. It has the correct gravity and lock delay t
 
 | Placeholder | Source |
 | :--- | :--- |
-| `__CEM_WEIGHTS__` | `reinforcement-learning/cem_checkpoints/best_cem_weights.json`, or `--cem-weights` (8 or 10 weights, normalized; falls back to the published Thiery & Scherrer weights) |
+| `__CEM_WEIGHTS__` | One weight list per CEM engine in the HUD, from `reinforcement-learning/cem_checkpoints/`: `best_cem_weights_v3.json` (V3, 10 weights), `best_cem_weights_v4.json` (V4, 11) and `best_cem_weights.json` (V5, 13; or `--cem-weights`), normalized; a missing file falls back to the published Thiery & Scherrer weights |
 | `__DQN_V2_WEIGHTS__` | `reinforcement-learning/weights_v2.json` |
 | `__DQN_V1_WEIGHTS__` | `reinforcement-learning/weights_v1.json` |
 
-The result is `dist/tetris_bot.user.js`. `userscript/serve_offline.py` serves the offline game from the `tetris/` submodule and injects that file into `game.html`, so the game files are never modified.
+The result is `dist/tetris_bot.user.js`. `userscript/serve_offline.py` serves the offline game from the `tetris/` submodule and injects that file into `game.html` and `index.html` (the page with the HUD), so the game files are never modified.

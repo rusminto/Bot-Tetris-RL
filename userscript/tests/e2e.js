@@ -3,7 +3,7 @@
 //   cd userscript && npm install && npx playwright install firefox
 //   node tests/e2e.js                          # normal game from Level 1 until the Marathon ends
 //   node tests/e2e.js --force-20g --seconds 120 # 0 ms gravity and 150 ms lock delay from the first piece
-//   node tests/e2e.js --engine dqn_v2           # cem (default), dqn_v2 or dqn_v1
+//   node tests/e2e.js --engine cem_v4           # cem_v5 (default), cem_v4, cem_v3, dqn_v2 or dqn_v1
 //   node tests/e2e.js --bot path/to/other.user.js   # test another build instead of dist/
 //
 // Set PLAYWRIGHT_FIREFOX_PATH to use a specific Firefox binary.
@@ -15,7 +15,7 @@ const { firefox } = require('playwright');
 const ROOT = path.resolve(__dirname, '..', '..');
 
 function parseArgs(argv) {
-  const opts = { seconds: 600, port: 8790, engine: 'cem', force20g: false, bot: null, screenshot: null };
+  const opts = { seconds: 600, port: 8790, engine: 'cem_v5', force20g: false, bot: null, screenshot: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--force-20g') opts.force20g = true;
@@ -54,8 +54,9 @@ function readGameState() {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const server = spawn('python3', [path.join(ROOT, 'userscript', 'serve_offline.py'), '--port', String(opts.port)], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // launch first, so a missing browser doesn't leave the server running
   const browser = await firefox.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_FIREFOX_PATH || undefined });
+  const server = spawn('python3', [path.join(ROOT, 'userscript', 'serve_offline.py'), '--port', String(opts.port)], { stdio: ['ignore', 'ignore', 'inherit'] });
   let exitCode = 1;
   try {
     await sleep(800);

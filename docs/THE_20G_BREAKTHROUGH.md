@@ -209,4 +209,4 @@ Headless Firefox on the offline copy of the game (`userscript/tests/e2e.js`):
 
 The Marathon ends at Level 30 / 300 lines; every placement-search run that played to the end finished it with the stack at most 3 rows high, and all runs logged **0 mismatches** between the SRS model and the engine. (Score differences come from how often a policy goes for multi-line clears; none of them optimize score.)
 
-The v2 weights come from retraining CEM in a simulator with the same 20G rules. They have since been replaced as the default by v3, trained for Marathon score (about 826k points on average instead of ~606k); see [RL Algorithms](RL_ALGORITHMS.md#d-objectives-and-training-settings).
+The v2 weights come from retraining CEM in a simulator with the same 20G rules. They have since been replaced as the default by v3, v4 and then v5, trained for Marathon score (about 1.11M points on average in the simulator instead of ~624k); see [RL Algorithms](RL_ALGORITHMS.md#d-objectives-and-training-settings).
