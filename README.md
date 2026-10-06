@@ -6,6 +6,12 @@ A userscript bot that plays the official [play.tetris.com](https://play.tetris.c
 
 *The bot (V5 CEM-RL) finishing the Marathon on play.tetris.com: Level 30, 302 lines, 1,166,698 points.*
 
+### Video
+
+[![Watch the bot play a full Marathon on YouTube](https://img.youtube.com/vi/yD0bMym39Xs/maxresdefault.jpg)](https://youtu.be/yD0bMym39Xs)
+
+*Click to watch the bot play on [YouTube](https://youtu.be/yD0bMym39Xs).*
+
 ## Results
 
 | Policy | Offline game, headless Firefox | Simulated Marathon (256 games) | play.tetris.com |
