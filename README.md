@@ -91,4 +91,6 @@ To train on a remote server, copy `.env.example` to `.env`, fill in the server, 
 
 ## Disclaimer
 
+This project is for educational purposes only: it was built to learn and demonstrate reinforcement learning on a real game. Don't use it to submit scores to leaderboards or competitions, or in any way that breaks the game's terms of service.
+
 Tetris® is a registered trademark of The Tetris Company. This is a personal research project, not affiliated with or endorsed by The Tetris Company or Blue Planet Software, and it does not include their game files.
